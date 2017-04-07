@@ -1,0 +1,18 @@
+
+Training:
+First two months as the training set, the last month as the validation set
+
+Feature Engineering Ideas:
+1. Do clustering on the Drug products to represent the general category
+2. Predict the order probabilities
+3. Do the features about the time
+
+
+Collaboration:
+1. Try different ideas and develop different models. Ensembling may be applied in the last step.
+2. Have a pipeline to iterate for model eveluation
+
+
+Random thoughts:
+- What does each row mean?
+- Identify the trend of products and possible complementary relationships between products
