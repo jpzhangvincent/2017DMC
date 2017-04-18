@@ -1,7 +1,8 @@
 
-* [ ] one-hot encoding
+* [ ] (vtreat) one-hot encoding / impact encoding
   * availability
   * manufacturer
+
 * [ ] adFlag & (competitorPrice - price > 0)
 * [ ] price vs rrp
   * discretize?

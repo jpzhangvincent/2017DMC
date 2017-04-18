@@ -1,5 +1,5 @@
 
-## Minutes for 17/04/17
+## Minutes for 17/04/17 Meeting
 
 Some observations we might want to remove:
 * availability == 4 (out of stock?) with order == 1
@@ -49,8 +49,7 @@ Feature engineering:
   + competitor price does not change much
 
 
-
-## Minutes for 17/04/1 Meeting
+## Minutes for 17/04/07 Meeting
 
 Similar drugs might have an effect on each other; a user might click one drug
 and then end up buying a different drug.
