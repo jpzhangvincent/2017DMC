@@ -7,6 +7,7 @@ For variable names:
   * use underscores (not spaces, dashes, etc)
   * lowercase
   * explicit as possible (length doesn't matter)
+  * add to `variable_names.md` file in `references/` directory
 
 # Shuhao
 * [ ] presentation slides (by Sunday morning)
