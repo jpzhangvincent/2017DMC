@@ -21,7 +21,7 @@ When naming files and variables:
 
 ## Nick
 * [x] price per unit
-* [ ] day of week
+* [x] day of week
 * [ ] PID groups
   + might be useful for novel PIDs
 * [x] lowercase pharmForm

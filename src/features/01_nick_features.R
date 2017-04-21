@@ -60,10 +60,17 @@ train_day_of_week = train$day %% 7
 test_day_of_week = test$day %% 7
 
 
+# lowercase_pharm_form ----------------------------------------
+message("lowercase_pharm_form")
+
+lowercase_pharm_form = tolower(items$pharmForm)
+
+
 # OUTPUT ----------------------------------------
 
 items_out$total_units = total_units
 items_out$rrp_per_unit = rrp_per_unit
+items_out$lowercase_pharm_form = lowercase_pharm_form
 write_csv(test_out, "data/interim/items_rrp_per_unit.csv")
 
 train_out$price_per_unit = train_price_per_unit
