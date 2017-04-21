@@ -1,37 +1,40 @@
+# Planned Features
 
-Output variables in standard CSV files indexed by:
-  * `lineid` for variables on `train.csv`
-  * `pid` for variables on `items.csv`
+Output variables in standard CSV files:
+  * Include `lineid` for variables on `train.csv` / `class.csv`
+  * Include `pid` for variables on `items.csv`
+  * Filename begins with the dataset name (`train`, `class`, or `items`) and
+    ends with `.csv`
 
-For variable names:
-  * use underscores (not spaces, dashes, etc)
-  * lowercase
-  * explicit as possible (length doesn't matter)
-  * add to `variable_names.md` file in `references/` directory
+When naming files and variables:
+  * Use underscores (not spaces, dashes, etc)
+  * Use lowercase
+  * Be as explicit as possible (length doesn't matter)
+  * Add the name to `variable_names.md` file in `references/` directory
 
-# Shuhao
+## Shuhao
 * [ ] presentation slides (by Sunday morning)
   * introduce data (topic, variables)
   * exploratory results
   * plans for feature engineering
   * potential models (but ask class for advice/feedback)
 
-# Nick
-* [ ] price per unit
+## Nick
+* [x] price per unit
 * [ ] day of week
-* [ ] (Nick) PID groups
+* [ ] PID groups
   + might be useful for novel PIDs
-* [x] (Nick) lowercase pharmForm
+* [x] lowercase pharmForm
   * [ ] group by German abbreviations
 
 
-# Jingyi
+## Jingyi
 * [ ] adFlag & (competitorPrice - price > 0)
 * [ ] price vs rrp
   * discretize?
 * [ ] competitorPrice vs rrp
 
-# Haoran
+## Haoran
 * [ ] moving statistics for price per pid
   * [ ] mean
   * [ ] median
@@ -39,23 +42,23 @@ For variable names:
 * [ ] moving statistics for competitorPrice per pid
 * [ ] rrp per unit
 
-# Lingfei
+## Lingfei
 * [ ] competitorPrice vs historical competitorPrice
   * [ ] max
   * [ ] previous
 * [ ] price vs historical price
   * windowed difference?
 
-# Vincent
+## Vincent
 * [ ] content
   * [x] multiply across "X"
   * [ ] split into two variables
 * [ ] "rank" of PID within manufacturer
-* [x] (Vincent) vtreat / one-hot encoding / impact encoding
+* [x] vtreat / one-hot encoding / impact encoding
   * availability
   * manufacturer
 
-# Olivia
+## Olivia
 * manufacturer
   * [ ] number of PIDs
   * [ ] number of lines
@@ -63,7 +66,7 @@ For variable names:
   * [ ] vs adFlag
   * [ ] vs price per unit
 
-# Weitong
+## Weitong
 * [ ] deduplicate PIDs
   * [ ] 
 * [ ] estimated probability of ordering
@@ -73,11 +76,11 @@ For variable names:
 
 
 
-# Hugo
-* [x] (Hugo) PMI between current line and previous/next
-* [x] (Hugo) unify the units
+## Hugo
+* [x] PMI between current line and previous/next
+* [x] unify the units
   * separate variables for separate units
-* [ ] (Hugo) discretize day within month
+* [ ] discretize day within month
   * by week
   * by 10-day period
 
