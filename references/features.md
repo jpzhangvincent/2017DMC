@@ -25,7 +25,8 @@ When naming files and variables:
 * [ ] PID groups
   + might be useful for novel PIDs
 * [x] lowercase pharmForm
-  * [ ] group by German abbreviations
+  * [x] group by German abbreviations
+  * [ ] translate groups by hand
 
 
 ## Jingyi
