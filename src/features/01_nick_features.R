@@ -71,7 +71,7 @@ lowercase_pharm_form = tolower(items$pharmForm)
 items_out$total_units = total_units
 items_out$rrp_per_unit = rrp_per_unit
 items_out$lowercase_pharm_form = lowercase_pharm_form
-write_csv(test_out, "data/interim/items_rrp_per_unit.csv")
+write_csv(items_out, "data/interim/items_rrp_per_unit.csv")
 
 train_out$price_per_unit = train_price_per_unit
 train_out$competitor_price_per_unit = train_competitor_price_per_unit
