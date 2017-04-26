@@ -19,7 +19,7 @@ if (FALSE) { # NOTE: This example never runs.
   preds1 = predict(model1, data_xgb(test))
   preds1 = ifelse(preds1 < 0.3, 0, 1)
 
-  # MODEL LEVEL 2 (revenue) ----------------------------------------
+  # MODEL LEVEL 2 (quantity) ----------------------------------------
   model2 = glm(quantity ~ ., family = poisson,
     data = with(train, cbind(data, quantity = quantity)[order == 1, ])
   )
