@@ -96,7 +96,7 @@ orig_train_df[, is_consectutive_order := mapply(function(x,y){
 cons_order_info <- orig_train_df[, .(num_cons_orders = log(sum(is_consectutive_order)+1),
                   prob_cons_orders = mean(is_consectutive_order)), by = pid]
 # integrate the feature with the combin_df
-combin_df <- merge(combin_df, cons_order_info, on ="pid", all.x =TRUE)
+combin_df <- merge(combin_df, cons_order_info, by ="pid", all.x =TRUE)
 to_fix <- c("num_cons_orders", "prob_cons_orders")
 combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
           by=.(group, content, unit, availability, category, salesIndex, adFlag), .SDcols = to_fix]
@@ -220,6 +220,7 @@ combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj)==T, mean(Av
 combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj)==T, mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj),
           by = .(group)]
 combin_df[, AvgRevPerPidDay:=NULL]
+rm(AvgRevPerPidDay_info)
 
 #---------------- decode "string pattern" features from variables ------------------
 # decode "group" variable: group always starts with a number 
@@ -333,6 +334,10 @@ combin_df[, last_avaibility := ifelse(is.na(last_avaibility)==T, 5, last_avaibil
 combin_df[, last_adFlag := shift(adFlag, 1), by = pid]
 combin_df[, last_adFlag := ifelse(is.na(last_adFlag)==T, 5, last_adFlag)]
 
+# interaction effect
+combin_df[, avaibility_transition := paste(last_avaibility, availability, sep ='-')]
+combin_df[, adFlag_transition := paste(last_adFlag, adFlag, sep ='-')]
+
 
 #-------integrate "random effects" feature for encoding high dimension categorical variables----
 manufacturer_ref <- readRDS("data/interim/manufacturer_ref")
@@ -367,16 +372,17 @@ rm(manufacturer_ref, category_ref, group_ref, content_ref, unit_ref,
 
 
 #--------------- Recover the data ---------------------------------
-train_df <- combin_df[day<63,]
-tmp_train_label <- orig_train_df[day<63, .(lineID, day, click, basket, order, revenue)]
+train_df <- combin_df[day<= 77,]
+tmp_train_label <- orig_train_df[day<=77, .(lineID, day, click, basket, order, revenue)]
 train_df <- merge(tmp_train_label, train_df, by = c("lineID", "day"), all = T)
 write_feather(train_df, 'data/processed/training_set.feather')
 
-valid_df <- combin_df[day>=63 & day<93,]
-tmp_valid_label <- orig_train_df[day>=63 & day<93, .(lineID, day, click, basket, order, revenue)]
-valid_df <- merge(train_df, tmp_valid_label, by = c("lineID", "day"), all = T)
+valid_df <- combin_df[day>77 & day<=92,]
+tmp_valid_label <- orig_train_df[day>77 & day<=92, .(lineID, day, click, basket, order, revenue)]
+valid_df <- merge(valid_df, tmp_valid_label, by = c("lineID", "day"), all = T)
 write_feather(valid_df, 'data/processed/validation_set.feather')
 
 test_df <- combin_df[day>=93,]
 write_feather(test_df, 'data/processed/test_set.feather')
-rm(list = ls())
+rm(train_df, valid_df, test_df)
+rm(tmp_train_label, tmp_valid_label)
