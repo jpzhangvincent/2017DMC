@@ -62,6 +62,8 @@ row_features_lines <- function(in_path, out_path, has_labels = FALSE) {
       , day_mod_14 = day %% 14
       , day_mod_28 = day %% 28
       , day_mod_30 = day %% 30
+
+      , competitorPrice_is_na = as.integer(is.na(competitorPrice))
     )]
 
   if (has_labels) {
