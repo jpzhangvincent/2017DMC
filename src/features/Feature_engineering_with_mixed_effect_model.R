@@ -22,70 +22,70 @@ string_vars <- c("pid", "lineID", "manufacturer", "group", "content", "unit", "p
 train_df[, lapply(.SD, function(x) length(unique(x))),.SDcols = string_vars]
 
 # encode pid
-# encode_pid_mxef <- glmmTMB(num_items_bought ~ (1|pid), 
-#                            data= train_df, ziformula = ~1, 
-#                            family= poisson)
-# pid_ref <- ranef(encode_pid_mxef)$cond$pid
-# setDT(pid_ref, keep.rownames = TRUE)
-# names(pid_ref) <- c("pid", "pid_ref")
-# saveRDS(pid_ref, "data/interim/pid_ref")
-# rm(encode_pid_mxef)
+encode_pid_mxef <- glmmTMB(num_items_bought ~ (1|pid),
+                           data= train_df, ziformula = ~1,
+                           family= poisson)
+pid_ref <- ranef(encode_pid_mxef)$cond$pid
+setDT(pid_ref, keep.rownames = TRUE)
+names(pid_ref) <- c("pid", "pid_ref")
+saveRDS(pid_ref, "data/interim/pid_ref")
+rm(encode_pid_mxef)
 # 
 # # encode pid and day_mod_7 interaction effect
-# encode_pid_day7_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_7/pid), 
-#                            data= train_df, ziformula = ~1, 
-#                            family= poisson)
-# pid_day7_ref <- ranef(encode_pid_day7_mxef)$cond$pid
-# setDT(pid_day7_ref, keep.rownames = TRUE)
-# names(pid_day7_ref) <- c("pid_day_mod_7", "pid_day7_ref")
-# saveRDS(pid_day7_ref, "data/interim/pid_day7_inter_ref")
-# day7_ref <- ranef(encode_pid_day7_mxef)$cond$day_mod_7
-# setDT(day7_ref, keep.rownames = TRUE)
-# names(day7_ref) <- c("day_mod_7", "day7_ref")
-# saveRDS(day7_ref, "data/interim/pid_day7_ref")
-# rm(encode_pid_day7_mxef)
+encode_pid_day7_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_7/pid),
+                           data= train_df, ziformula = ~1,
+                           family= poisson)
+pid_day7_ref <- ranef(encode_pid_day7_mxef)$cond$pid
+setDT(pid_day7_ref, keep.rownames = TRUE)
+names(pid_day7_ref) <- c("pid_day_mod_7", "pid_day7_ref")
+saveRDS(pid_day7_ref, "data/interim/pid_day7_inter_ref")
+day7_ref <- ranef(encode_pid_day7_mxef)$cond$day_mod_7
+setDT(day7_ref, keep.rownames = TRUE)
+names(day7_ref) <- c("day_mod_7", "day7_ref")
+saveRDS(day7_ref, "data/interim/pid_day7_ref")
+rm(encode_pid_day7_mxef)
 # 
 # # encode pid and day_mod_10 interaction effect
-# encode_pid_day10_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_10/pid), 
-#                                 data= train_df, ziformula = ~1, 
-#                                 family= poisson)
-# pid_day10_ref <- ranef(encode_pid_day10_mxef)$cond$pid
-# setDT(pid_day10_ref, keep.rownames = TRUE)
-# names(pid_day10_ref) <- c("pid_day_mod_10", "pid_day10_ref")
-# saveRDS(pid_day10_ref, "data/interim/pid_day10_inter_ref")
-# day10_ref <- ranef(encode_pid_day10_mxef)$cond$day_mod_10
-# setDT(day10_ref, keep.rownames = TRUE)
-# names(day10_ref) <- c("day_mod_10", "day10_ref")
-# saveRDS(day10_ref, "data/interim/pid_day10_ref")
-# rm(encode_pid_day10_mxef)
+encode_pid_day10_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_10/pid),
+                                data= train_df, ziformula = ~1,
+                                family= poisson)
+pid_day10_ref <- ranef(encode_pid_day10_mxef)$cond$pid
+setDT(pid_day10_ref, keep.rownames = TRUE)
+names(pid_day10_ref) <- c("pid_day_mod_10", "pid_day10_ref")
+saveRDS(pid_day10_ref, "data/interim/pid_day10_inter_ref")
+day10_ref <- ranef(encode_pid_day10_mxef)$cond$day_mod_10
+setDT(day10_ref, keep.rownames = TRUE)
+names(day10_ref) <- c("day_mod_10", "day10_ref")
+saveRDS(day10_ref, "data/interim/pid_day10_ref")
+rm(encode_pid_day10_mxef)
 # 
 # # encode groud and day_mod_7 interaction effect
-# encode_group_day7_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_7/group),
-#                              data=train_df, ziformula = ~1,
-#                              family= poisson)
-# group_day7_ref <- ranef(encode_group_day7_mxef)$cond$group
-# setDT(group_day7_ref, keep.rownames = TRUE)
-# names(group_day7_ref) <- c("group_day_mod_7", "group_day7_ref")
-# saveRDS(group_day7_ref, "data/interim/group_day7_inter_ref")
-# day7_ref <- ranef(encode_group_day7_mxef)$cond$day_mod_7
-# setDT(day7_ref, keep.rownames = TRUE)
-# names(day7_ref) <- c("day_mod_7", "day7_ref")
-# saveRDS(day7_ref, "data/interim/group_day7_ref")
-# rm(encode_group_day7_mxef)
+encode_group_day7_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_7/group),
+                             data=train_df, ziformula = ~1,
+                             family= poisson)
+group_day7_ref <- ranef(encode_group_day7_mxef)$cond$group
+setDT(group_day7_ref, keep.rownames = TRUE)
+names(group_day7_ref) <- c("group_day_mod_7", "group_day7_ref")
+saveRDS(group_day7_ref, "data/interim/group_day7_inter_ref")
+day7_ref <- ranef(encode_group_day7_mxef)$cond$day_mod_7
+setDT(day7_ref, keep.rownames = TRUE)
+names(day7_ref) <- c("day_mod_7", "day7_ref")
+saveRDS(day7_ref, "data/interim/group_day7_ref")
+rm(encode_group_day7_mxef)
 # 
 # # encode groud and day_mod_10 interaction effect
-# encode_group_day10_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_10/group),
-#                                   data=train_df, ziformula = ~1,
-#                                   family= poisson)
-# group_day10_ref <- ranef(encode_group_day10_mxef)$cond$group
-# setDT(group_day10_ref, keep.rownames = TRUE)
-# names(group_day10_ref) <- c("group_day_mod_10", "group_day10_ref")
-# saveRDS(group_day10_ref, "data/interim/group_day10_ref")
-# day10_ref <- ranef(encode_group_day10_mxef)$cond$day_mod_10
-# setDT(day10_ref, keep.rownames = TRUE)
-# names(day10_ref) <- c("day_mod_10", "day10_ref")
-# saveRDS(day10_ref, "data/interim/group_day10_ref")
-# rm(encode_group_day10_mxef)
+encode_group_day10_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_10/group),
+                                  data=train_df, ziformula = ~1,
+                                  family= poisson)
+group_day10_ref <- ranef(encode_group_day10_mxef)$cond$group
+setDT(group_day10_ref, keep.rownames = TRUE)
+names(group_day10_ref) <- c("group_day_mod_10", "group_day10_ref")
+saveRDS(group_day10_ref, "data/interim/group_day10_ref")
+day10_ref <- ranef(encode_group_day10_mxef)$cond$day_mod_10
+setDT(day10_ref, keep.rownames = TRUE)
+names(day10_ref) <- c("day_mod_10", "day10_ref")
+saveRDS(day10_ref, "data/interim/group_day10_ref")
+rm(encode_group_day10_mxef)
 
 # encode category and day_mod_7 interaction effect
 encode_category_day7_mxef <- glmmTMB(num_items_bought ~ (1|day_mod_7/category),
