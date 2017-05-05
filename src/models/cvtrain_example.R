@@ -101,3 +101,29 @@ plot(gbm2)
 h2o.saveModel(gbm2, "models/allfeatures_misclass_xgb_0.66")
 head(as.data.frame(h2o.varimp(gbm2)))
 h2o.varimp(gbm2)
+
+#random comment
+#---------------------- evaluate on the validation set-----------
+valid_set <- read_feather("data/processed/validation_set.feather") #93>day>77
+valid_set.hex <- as.h2o(valid_set, destination_frame = "valid_set.hex")
+valid_set.hex$order <- as.factor(valid_set.hex$order)
+valid_set.hex$manufacturer <- as.factor(valid_set.hex$manufacturer)
+valid_set.hex$pharmForm <- as.factor(valid_set.hex$pharmForm)
+valid_set.hex$group <- as.factor(valid_set.hex$group)
+valid_set.hex$unit <- as.factor(valid_set.hex$unit)
+valid_set.hex$category <- as.factor(valid_set.hex$category)
+valid_set.hex$campaignIndex <- as.factor(valid_set.hex$campaignIndex)
+valid_set.hex$salesIndex <- as.factor(valid_set.hex$salesIndex)
+valid_set.hex$adFlag <- as.factor(valid_set.hex$adFlag)
+valid_set.hex$last_adFlag <- as.factor(valid_set.hex$last_adFlag)
+valid_set.hex$availability <- as.factor(valid_set.hex$availability)
+valid_set.hex$last_avaibility <- as.factor(valid_set.hex$last_avaibility)
+valid_set.hex$group_beginNum <- as.factor(valid_set.hex$group_beginNum)
+valid_set.hex$genericProduct <- as.factor(valid_set.hex$genericProduct)
+valid_set.hex$content <- as.factor(valid_set.hex$content)
+valid_set.hex$avaibility_transition <- as.factor(valid_set.hex$avaibility_transition)
+valid_set.hex$adFlag_transition <- as.factor(valid_set.hex$adFlag_transition)
+
+valid_perf <- h2o.performance(model=gbm2, newdata = valid_set.hex)
+print(valid_perf) 
+#auc 0.75; best accuracy: 0.763 with threshold 0.68
