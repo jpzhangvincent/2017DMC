@@ -163,13 +163,13 @@ df[, `:=`(
 df[, isgreater_discount := as.integer(price_discount_diff > 0)]
 
 df[, `:=`(
-    price_discount_min = min(price_discount, na.rm = T)
-    , price_discount_p25 = quantile(price_discount, probs = 0.25, na.rm = T)
-    , price_discount_med = median(price_discount, na.rm = T)
-    , price_discount_p75 = quantile(price_discount, probs = 0.75, na.rm = T)
-    , price_discount_max = max(price_discount, na.rm = T)
-    , price_discount_sd = sd(price_discount, na.rm = T)
-    , price_discount_mad = mad(price_discount, na.rm = T)
+    price_discount_min = min(price_discount)
+    , price_discount_p25 = quantile(price_discount, probs = 0.25)
+    , price_discount_med = median(price_discount)
+    , price_discount_p75 = quantile(price_discount, probs = 0.75)
+    , price_discount_max = max(price_discount)
+    , price_discount_mad = mad(price_discount)
+    #, price_discount_sd = sd(price_discount)
   ), by = deduplicated_pid]
 
 # Counts ----------------------------------------
