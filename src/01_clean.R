@@ -31,14 +31,14 @@ if (!file.exists(OUT$items)) {
 
   # Missing Values --------------------
   items[, `:=`(
-      pharmForm_isNA = ifelse(is.na(pharmForm), 1, 0)
-      , pharmForm = ifelse(is.na(pharmForm), "-999", pharmForm)
+      pharmForm_is_na = as.integer(is.na(pharmForm))
+      , pharmForm = ifelse(is.na(pharmForm), "?", pharmForm)
 
-      , category_isNA = ifelse(is.na(category), 1, 0)
-      , category = ifelse(is.na(category), "-999", category)
+      , category_is_na = as.integer(is.na(category))
+      , category = ifelse(is.na(category), "?", category)
 
-      , campaignIndex_isNA = ifelse(is.na(campaignIndex), 1, 0)
-      , campaignIndex = ifelse(is.na(campaignIndex), "-999", campaignIndex)
+      , campaignIndex_is_na = as.integer(is.na(campaignIndex))
+      , campaignIndex = ifelse(is.na(campaignIndex), "?", campaignIndex)
     )]
 
   write_feather(items, OUT$items)
