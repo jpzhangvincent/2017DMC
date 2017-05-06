@@ -17,142 +17,184 @@ OUT <- list(
   train      = "../data/03_%s_train.feather",
   validation = "../data/03_%s_test.feather")
 
-LABEL_COLS <- c("click", "basket", "order", "revenue")
+LABEL_COLS <- c("click", "basket", "order", "revenue", "order_qty")
 
 
 # This function runs first when the script is sourced/executed.
 main <- function() {
-  train = data.table(read_feather(IN$train))
+  train <- data.table(read_feather(IN$train))
 
-  n_folds = max(train$fold)
+  n_folds <- max(train$fold)
   for ( i in seq.int(2, n_folds) ) {
     if (i == n_folds) {
-      name = "leader"
+      name <- "leader"
       message("Computing features for [1 ... ] [leader].")
     } else {
-      name = sprintf("iter_%02i", i - 1)
+      name <- sprintf("iter_%02i", i - 1)
       message(sprintf("Computing features for [1 ... ] [%i].", i))
     }
 
     # Separate folds into training and validation sets.
-    tr = train[fold < i, ]
-    vd = train[fold == i, !LABEL_COLS, with = FALSE]
+    df <- copy(train[fold <= i, ])
 
-    make_label_features(tr, vd, name)
-    rm(tr, vd); gc()
+    make_label_features(df, i, name)
+
+    rm(df); gc()
   }
 
   message("Computing features for [train] [test].")
-  
-  test = data.table(read_feather(IN$test))
-  make_label_features(train, test, "final")
+  test <- data.table(read_feather(IN$test))
+  test$fold <- 1000
+
+  train <- rbind(train, test, fill = TRUE)
+  rm(test); gc()
+
+  make_label_features(train, 1000, "final")
 
   invisible (NULL)
 }
 
 
 
-make_label_features <- function(tr, vd, name) {
+make_label_features <- function(df, i, name) {
 
   log1sum = function(x) log(sum(x) + 1)
 
   # By pid ----------------------------------------
-  setkey(tr, pid)
-  setkey(vd, pid)
+  by = "pid"
+  setkeyv(df, by)
 
-  by_pid <- tr[, .(
+  oldcols = copy(colnames(df))
+  df[fold < i, `:=`(
       # Order Propensities --------------------
-      num_pid_click = log1sum(click)
-      , prob_pid_click = mean(click)
-      , num_pid_basket = log1sum(basket)
+      num_pid_click     = log1sum(click)
+      , prob_pid_click  = mean(click)
+      , num_pid_basket  = log1sum(basket)
       , prob_pid_basket = mean(basket)
-      , num_pid_order = log1sum(order)
-      , prob_pid_order = mean(order)
+      , num_pid_order   = log1sum(order)
+      , prob_pid_order  = mean(order)
 
       # Purchase Probabilities --------------------
-      , buy_one_prob = length(order_qty[order_qty == 1]) / .N
-      , buy_more_prob = length(order_qty[order_qty > 1]) / .N
+      , order_qty_eq_1_prob = length(order_qty[order_qty == 1]) / .N
+      , order_qty_gt_1_prob = length(order_qty[order_qty > 1]) / .N
 
       # Consecutive Order Probabilities --------------------
-      , num_cons_orders =
-        log1sum( (order == 1) & (order == shift(order, 1, 0)) )
-      , prob_cons_orders =
-        mean( (order == 1) & (order == shift(order, 1, 0)) )
-    ), by = pid]
+      , num_cons_orders
+        = log1sum( (order == 1) & (order == shift(order, 1, 0)) )
+      , prob_cons_orders
+        = mean( (order == 1) & (order == shift(order, 1, 0)) )
+    ), by = by]
 
-  tr <- merge(tr, by_pid, all.x = TRUE)
-  vd <- merge(vd, by_pid, all.x = TRUE)
-  rm(by_pid); gc()
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
 
   # By (pid, day_mod_7) ----------------------------------------
-  setkey(tr, pid, day_mod_7)
-  setkey(vd, pid, day_mod_7)
+  by = c("pid", "day_mod_7")
+  setkeyv(df, by)
 
-  by_pid_day7 = tr[, list(
-      # Price Differences --------------------
-      # Average price, price difference and discount difference for click,
-      # basket, and order
-      avg_price_click_info = mean(price[click])
-      , avg_price_basket_info = mean(price[basket])
-      , avg_price_order_info = mean(price[order])
-
-      , avg_pricediff_click_info = mean(price_diff[click])
-      , avg_pricediff_basket_info = mean(price_diff[basket])
-      , avg_pricediff_order_info = mean(price_diff[order])
-
-      , avg_pricediscdiff_click_info = mean(price_discount_diff[click])
-      , avg_pricediscdiff_basket_info = mean(price_discount_diff[basket])
-      , avg_pricediscdiff_order_info = mean(price_discount_diff[order])
-
-      # Order Rates --------------------
-      , cnt_click_byday7 = log1sum(click)
+  # Order Rates --------------------
+  oldcols = copy(colnames(df))
+  df[fold < i, `:=`(
+      cnt_click_byday7  = log1sum(click)
       , cnt_basket_byday7 = log1sum(basket)
-      , cnt_order_byday7 = log1sum(order)
-    ), by = .(pid, day_mod_7)]
+      , cnt_order_byday7  = log1sum(order)
+    ), by = by]
 
-  tr <- merge(tr, by_pid_day7, all.x = TRUE)
-  vd <- merge(vd, by_pid_day7, all.x = TRUE)
-  rm(by_pid_day7); gc()
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
+
+  # Price Differences --------------------
+  # Average price, price difference and discount difference for click, basket,
+  # and order
+
+  # Click
+  oldcols = copy(colnames(df))
+  df[fold < i & click, `:=`(
+      avg_price_click_info             = mean(price)
+      , avg_price_diff_click_info      = mean(price_diff)
+      , avg_price_disc_diff_click_info = mean(price_discount_diff)
+    ), by = by]
+
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
+
+  # Basket
+  oldcols = copy(colnames(df))
+  df[fold < i & basket, `:=`(
+       avg_price_basket_info            = mean(price)
+      , avg_price_diff_basket_info      = mean(price_diff)
+      , avg_price_disc_diff_basket_info = mean(price_discount_diff)
+    ), by = by]
+
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
+
+  # Order
+  oldcols = copy(colnames(df))
+  df[fold < i & order, `:=`(
+      avg_price_order_info             = mean(price)
+      , avg_price_diff_order_info      = mean(price_diff)
+      , avg_price_disc_diff_order_info = mean(price_discount_diff)
+    ), by = by]
+
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
 
   # By (...) ----------------------------------------
-  group_cols = c("group", "content", "unit", "availability", "adFlag")
+  by = c("group", "content", "unit", "availability", "adFlag")
+  setkeyv(df, by)
 
-  by_group <- tr[, list(
+  oldcols = copy(colnames(df))
+  df[fold < i, `:=`(
+      # FIXME: These can produce Inf in some cases.
       # Action Propensities --------------------
-      click_propensity = mean(click) / (1 - mean(click))
+      click_propensity    = mean(click) / (1 - mean(click))
       , basket_propensity = mean(basket) / (1 - mean(basket))
-      , order_propensity = mean(order) / (1 - mean(order))
-    ), by = group_cols]
+      , order_propensity  = mean(order) / (1 - mean(order))
+    ), by = by]
 
-  tr <- merge(tr, by_group, by = group_cols, all.x = TRUE)
-  vd <- merge(vd, by_group, by = group_cols, all.x = TRUE)
-  rm(by_group); gc()
+
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
 
   # Revenue ----------------------------------------
-  by_group <- tr[, .(
-      avg_revenue_by_group_7 = mean(revenue)
-    ), by = c(group_cols, "day_mod_7")]
+  by = c("group", "content", "unit", "availability", "adFlag", "day_mod_7")
+  setkeyv(df, by)
 
-  tr <- merge(tr, by_group, by = c(group_cols, "day_mod_7"), all.x = T)
-  vd <- merge(vd, by_group, by = c(group_cols, "day_mod_7"), all.x = T)
-  rm(by_group); gc()
+  oldcols = copy(colnames(df))
+  df[fold < i, avg_revenue_by_group_7 := mean(revenue), by = by]
 
-  by_group <- tr[, .(
-      avg_revenue_by_group_10 = mean(revenue)
-    ), by = c(group_cols, "day_mod_10")]
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
 
-  tr <- merge(tr, by_group, by = c(group_cols, "day_mod_10"), all.x = T)
-  vd <- merge(vd, by_group, by = c(group_cols, "day_mod_10"), all.x = T)
-  rm(by_group); gc()
 
-  by_group <- tr[, .(
-      avg_revenue_by_group_30 = mean(revenue)
-    ), by = c(group_cols, "day_mod_30")]
+  by = c("group", "content", "unit", "availability", "adFlag", "day_mod_10")
+  setkeyv(df, by)
 
-  tr <- merge(tr, by_group, by = c(group_cols, "day_mod_30"), all.x = T)
-  vd <- merge(vd, by_group, by = c(group_cols, "day_mod_30"), all.x = T)
-  rm(by_group); gc()
+  oldcols = copy(colnames(df))
+  df[fold < i, avg_revenue_by_group_10 := mean(revenue), by = by]
 
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
+
+
+  by = c("group", "content", "unit", "availability", "adFlag", "day_mod_30")
+  setkeyv(df, by)
+
+  oldcols = copy(colnames(df))
+  df[fold < i, avg_revenue_by_group_30 := mean(revenue), by = by]
+
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
 
   # NOTE: This feature does not have high importance ranking and is expensive
   # to generate, so I've left it out.
@@ -191,17 +233,54 @@ make_label_features <- function(tr, vd, name) {
   # TODO:
 
   # Write To Disk ----------------------------------------
-  setkey(tr, lineID)
-  out <- sprintf(OUT$train, name)
-  write_feather(tr, out)
-  message(sprintf("Wrote: %s", out))
-  rm(tr); gc()
+  setkey(df, lineID)
 
-  setkey(vd, lineID)
-  out <- sprintf(OUT$validation, name)
-  write_feather(vd, out)
+  out <- sprintf(OUT$train, name)
+  write_feather(df[fold < i, ], out)
   message(sprintf("Wrote: %s", out))
-  rm(vd); gc()
+
+  out <- sprintf(OUT$validation, name)
+  write_feather(df[fold == i, !LABEL_COLS, with = FALSE], out)
+  message(sprintf("Wrote: %s", out))
+
+  invisible (NULL)
+}
+
+
+# Fill label features using first in group.
+fill_label_features <- function(df, to_fix, by) {
+  df[, (to_fix) := lapply(.SD, function(x) na.omit(x)[1]),
+    by = by, .SDcols = to_fix]
+
+  invisible (NULL)
+}
+
+# Impute label features for novel pids.
+impute_label_features <- function(df, to_fix) {
+  # 1st Attempt
+  by <- c("group", "content", "unit", "adFlag", "salesIndex", "campaignIndex",
+    "day_mod_7")
+
+  df[, (to_fix)
+      := lapply(.SD, function(x) ifelse(is.na(x), mean(x, na.rm = T), x)),
+    by = by, .SDcols = to_fix]
+
+  # 2nd Attempt
+  by <- c("group", "content", "unit", "adFlag")
+
+  df[, (to_fix)
+      := lapply(.SD, function(x) ifelse(is.na(x), mean(x, na.rm = T), x)),
+    by = by, .SDcols = to_fix]
+
+  # 3rd Attempt
+  df[, (to_fix)
+      := lapply(.SD, function(x) ifelse(is.na(x), mean(x, na.rm = T), x)),
+    by = .(group), .SDcols = to_fix]
+
+  # 4th Attempt
+  df[, (to_fix)
+      := lapply(.SD, function(x) ifelse(is.na(x), mean(x, na.rm = T), x)),
+    .SDcols = to_fix]
 
   invisible (NULL)
 }
