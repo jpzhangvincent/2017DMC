@@ -37,8 +37,8 @@ IN <- list(
   test  = "../data/interim/01_clean_test.feather")
 
 OUT <- list(
-  train = "../data/interim/02_nolabel_features_train.feather",
-  test  = "../data/interim/02_nolabel_features_test.feather")
+  train = "../data/interim/02_nolabel_feat_train.feather",
+  test  = "../data/interim/02_nolabel_feat_test.feather")
 
 BREAKS <- c(21, 14, 14, 14, 14, 15)
 

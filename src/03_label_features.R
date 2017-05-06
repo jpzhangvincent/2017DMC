@@ -1,420 +1,210 @@
+#!/usr/bin/env Rscript
+#
+# This script adds features that depend on the labels.
+#
+# Note (group, content, unit) groups similar products when filling missing
+# values after grouping by pid.
+#
+
 library(data.table)
-library(stringr)
 library(feather)
-#library(zoo)
-#library(dummies)
 
-# Notes:
-# 1. "group, content, unit" pair usually represent as a similar pair when grouping 
-#     to replace missing numeric values in the end (after grouping by pid)
-# 2. Features can be broken down in main categories
-#     1.Time
-#     2.order propensity by pid and group (count, probability and odd ratio)
-#     3.missing value treatments (isNA)
-#     4.aggregated statistics related to product popularity 
-#     5.order rate/revenue per pid by "day" (related response variables)
-#     6.decoding variables with special string pattern(i.e group, unit)
-#     7.dynamic pricing(price diff, price change, discount diff and pricing trends.)
-#     8.product state last time per pid(availability and adFlag last time)
-#     9."random effects encoding" for high dimension categorical variables
-#`    `
-#--------------- Read Data ------------------------------------------
-orig_train_df <- readRDS("data/interim/train_cleanformat.rds")
-test_df <- fread('data/raw/class.csv', na.strings = c('', ' ', 'NA'))
-item_df <- fread('data/raw/items.csv', na.strings = c('', ' ', 'NA'))
-setkey(test_df, pid)
-setkey(item_df, pid)
-test_df <- merge(test_df, item_df, all.x = TRUE)
-to_string_vars <- c("pid", "lineID", "manufacturer", "group", "content", "unit",
-                    "pharmForm", "salesIndex", "category", "campaignIndex")
-test_df <- test_df[, (to_string_vars) := lapply(.SD, as.character), .SDcols = to_string_vars]
-test_df[, `:=`(group = tolower(group), pharmForm = tolower(pharmForm),unit = tolower(unit))]
+IN <- list(
+  train = "../data/interim/02_nolabel_feat_train.feather",
+  test  = "../data/interim/02_nolabel_feat_test.feather")
 
-# combine train and test data for some common feature engineering
-train_df <- orig_train_df[, names(test_df), with = FALSE]
-data_ls <- list(train_df, test_df)
-combin_df <- rbindlist(data_ls)
-rm(data_ls,item_df,train_df,test_df)
+OUT <- list(
+  train      = "../data/03_%s_train.feather",
+  validation = "../data/03_%s_test.feather")
 
-#---------------- create "time related" features ------------------------
-combin_df[, `:=`(day_mod_7 = day%%7, day_mod_10 = day%%10, 
-                 day_mod_14 = day%%14, day_mod_28 = day%%28, 
-                 day_mod_30 = day%%30)]
-
-orig_train_df[, `:=`(day_mod_7 = day%%7, day_mod_10 = day%%10, 
-                     day_mod_14 = day%%14, day_mod_28 = day%%28, 
-                     day_mod_30 = day%%30)]
+LABEL_COLS <- c("click", "basket", "order", "revenue")
 
 
-#---------------- create "order propensity" features for each pid -----------------
-pid_purchase_info <- orig_train_df[,list(num_pid_click = log(sum(click, na.rm=T)+1), 
-                                  prob_pid_click = mean(click, na.rm=T),
-                                  num_pid_basket = log(sum(basket, na.rm=T)+1), 
-                                  prob_pid_basket = mean(basket, na.rm=T),
-                                  num_pid_order = log(sum(order, na.rm=T)+1),
-                                  prob_pid_order = mean(order, na.rm=T)
-                                  ), by = pid]
-# 100 new pids in the test set
-# new_pids <- setdiff(test_df$pid, train_df$pid)
-# integrate the "order propensity per pid" features
-combin_df <- merge(combin_df,pid_purchase_info, by = "pid", all.x = TRUE)
-to_fix <- c("num_pid_click", "prob_pid_click", "num_pid_basket", "prob_pid_basket",
-            "num_pid_order", "prob_pid_order")
-# fix missing values resulted from the new pids in the test set
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, availability, category, salesIndex, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, category, availability, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, availability, adFlag), .SDcols = to_fix]
-rm(pid_purchase_info, to_fix)
+# This function runs first when the script is sourced/executed.
+main <- function() {
+  train = data.table(read_feather(IN$train))
 
-# "order propensity per general product state" features
-group_purchase_info <- orig_train_df[,list( 
-                                      or_group_click = mean(click, na.rm=T)/(1-mean(click, na.rm=T)),
-                                      or_group_basket = mean(basket, na.rm=T)/(1-mean(basket, na.rm=T)),
-                                      or_group_order = mean(order, na.rm=T)/(1-mean(order, na.rm=T))
-), by = .(group, content, unit, availability, adFlag)]
-combin_df <- merge(combin_df, group_purchase_info, 
-                   by = c("group", "content", "unit", "availability", "adFlag"), all.x = TRUE)
-# fix missing values 
-to_fix <- c("or_group_click", "or_group_basket", "or_group_order")
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T | x<0.01, 0, x)),
-          by=.(group), .SDcols = to_fix] # bounded by 0
-rm(group_purchase_info, to_fix)
+  n_folds = max(train$fold)
+  for ( i in seq.int(2, n_folds) ) {
+    if (i == n_folds) {
+      name = "leader"
+      message("Computing features for [1 ... ] [leader].")
+    } else {
+      name = sprintf("iter_%02i", i - 1)
+      message(sprintf("Computing features for [1 ... ] [%i].", i))
+    }
+
+    # Separate folds into training and validation sets.
+    tr = train[fold < i, ]
+    vd = train[fold == i, !LABEL_COLS, with = FALSE]
+
+    make_label_features(tr, vd, name)
+    rm(tr, vd); gc()
+  }
+
+  message("Computing features for [train] [test].")
+  
+  test = data.table(read_feather(IN$test))
+  make_label_features(train, test, "final")
+
+  invisible (NULL)
+}
 
 
 
-# "purchance one probability" feature
-buy_one_info <- orig_train_df[, list(buy_one_prob = length(num_items_bought[num_items_bought==1])/.N), by = pid]
-# "purchance more probability" feature
-buy_more_info <- orig_train_df[, list(buy_more_prob = length(num_items_bought[num_items_bought>1])/.N), by = pid]
-combin_df <- merge(combin_df, buy_one_info, on ="pid", all.x =TRUE)
-combin_df <- merge(combin_df, buy_more_info, on = "pid", all.x=TRUE)
-# similarily, need to fix missing values resulted from the new pids in the test set
-to_fix <- c("buy_one_prob", "buy_more_prob")
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, availability, category, salesIndex, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, category, availability, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, availability, adFlag), .SDcols = to_fix]
-rm(buy_one_info, buy_more_info)
+make_label_features <- function(tr, vd, name) {
+
+  log1sum = function(x) log(sum(x) + 1)
+
+  # By pid ----------------------------------------
+  setkey(tr, pid)
+  setkey(vd, pid)
+
+  by_pid <- tr[, .(
+      # Order Propensities --------------------
+      num_pid_click = log1sum(click)
+      , prob_pid_click = mean(click)
+      , num_pid_basket = log1sum(basket)
+      , prob_pid_basket = mean(basket)
+      , num_pid_order = log1sum(order)
+      , prob_pid_order = mean(order)
+
+      # Purchase Probabilities --------------------
+      , buy_one_prob = length(order_qty[order_qty == 1]) / .N
+      , buy_more_prob = length(order_qty[order_qty > 1]) / .N
+
+      # Consecutive Order Probabilities --------------------
+      , num_cons_orders =
+        log1sum( (order == 1) & (order == shift(order, 1, 0)) )
+      , prob_cons_orders =
+        mean( (order == 1) & (order == shift(order, 1, 0)) )
+    ), by = pid]
+
+  tr <- merge(tr, by_pid, all.x = TRUE)
+  vd <- merge(vd, by_pid, all.x = TRUE)
+  rm(by_pid); gc()
+
+  # By (pid, day_mod_7) ----------------------------------------
+  setkey(tr, pid, day_mod_7)
+  setkey(vd, pid, day_mod_7)
+
+  by_pid_day7 = tr[, list(
+      # Price Differences --------------------
+      # Average price, price difference and discount difference for click,
+      # basket, and order
+      avg_price_click_info = mean(price[click])
+      , avg_price_basket_info = mean(price[basket])
+      , avg_price_order_info = mean(price[order])
+
+      , avg_pricediff_click_info = mean(price_diff[click])
+      , avg_pricediff_basket_info = mean(price_diff[basket])
+      , avg_pricediff_order_info = mean(price_diff[order])
+
+      , avg_pricediscdiff_click_info = mean(price_discount_diff[click])
+      , avg_pricediscdiff_basket_info = mean(price_discount_diff[basket])
+      , avg_pricediscdiff_order_info = mean(price_discount_diff[order])
+
+      # Order Rates --------------------
+      , cnt_click_byday7 = log1sum(click)
+      , cnt_basket_byday7 = log1sum(basket)
+      , cnt_order_byday7 = log1sum(order)
+    ), by = .(pid, day_mod_7)]
+
+  tr <- merge(tr, by_pid_day7, all.x = TRUE)
+  vd <- merge(vd, by_pid_day7, all.x = TRUE)
+  rm(by_pid_day7); gc()
+
+  # By (...) ----------------------------------------
+  group_cols = c("group", "content", "unit", "availability", "adFlag")
+
+  by_group <- tr[, list(
+      # Action Propensities --------------------
+      click_propensity = mean(click) / (1 - mean(click))
+      , basket_propensity = mean(basket) / (1 - mean(basket))
+      , order_propensity = mean(order) / (1 - mean(order))
+    ), by = group_cols]
+
+  tr <- merge(tr, by_group, by = group_cols, all.x = TRUE)
+  vd <- merge(vd, by_group, by = group_cols, all.x = TRUE)
+  rm(by_group); gc()
+
+  # Revenue ----------------------------------------
+  by_group <- tr[, .(
+      avg_revenue_by_group_7 = mean(revenue)
+    ), by = c(group_cols, "day_mod_7")]
+
+  tr <- merge(tr, by_group, by = c(group_cols, "day_mod_7"), all.x = T)
+  vd <- merge(vd, by_group, by = c(group_cols, "day_mod_7"), all.x = T)
+  rm(by_group); gc()
+
+  by_group <- tr[, .(
+      avg_revenue_by_group_10 = mean(revenue)
+    ), by = c(group_cols, "day_mod_10")]
+
+  tr <- merge(tr, by_group, by = c(group_cols, "day_mod_10"), all.x = T)
+  vd <- merge(vd, by_group, by = c(group_cols, "day_mod_10"), all.x = T)
+  rm(by_group); gc()
+
+  by_group <- tr[, .(
+      avg_revenue_by_group_30 = mean(revenue)
+    ), by = c(group_cols, "day_mod_30")]
+
+  tr <- merge(tr, by_group, by = c(group_cols, "day_mod_30"), all.x = T)
+  vd <- merge(vd, by_group, by = c(group_cols, "day_mod_30"), all.x = T)
+  rm(by_group); gc()
 
 
-# "probability of consectutive orders(this time and last time for same pid)" feature
-setkey(orig_train_df, pid, day)
-orig_train_df[, order_lasttime := shift(order, 1), by = pid]
-orig_train_df$order_lasttime[is.na(orig_train_df$order_lasttime)] <- 0
-orig_train_df[, is_consectutive_order := mapply(function(x,y){
-                ifelse(x==1 & y==1, 1,0)}, order, order_lasttime), 
-              by = pid]
-cons_order_info <- orig_train_df[, .(num_cons_orders = log(sum(is_consectutive_order)+1),
-                  prob_cons_orders = mean(is_consectutive_order)), by = pid]
-# integrate the feature with the combin_df
-combin_df <- merge(combin_df, cons_order_info, by ="pid", all.x =TRUE)
-to_fix <- c("num_cons_orders", "prob_cons_orders")
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, availability, category, salesIndex, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, category, availability, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, availability, adFlag), .SDcols = to_fix]
-rm(cons_order_info, to_fix)
+  # NOTE: This feature does not have high importance ranking and is expensive
+  # to generate, so I've left it out.
+  # Need to be careful about overfitting problem.
+  #tr[, avg_revenue_per_pid_line := (
+  #    (sum(revenue) - revenue) / (.N - 1) # leave-one-out
+  #    + rnorm(.N, mean(revenue), 0.2)     # added noise
+  #  ), by = pid]
+
+  #vd[, avg_revenue_per_pid_line := NA]
+
+  #vd[, AvgRevPerPidDay_adj :=
+  #  ifelse(is.na(avg_revenue_per_pid_line)
+  #    , mean(avg_revenue_per_pid_line, na.rm = T)
+  #    , avg_revenue_per_pid_line)
+  #tr[, mean(avg_revenue_per_pid_line),
+  #  by = .(pid, campaignIndex, salesIndex, adFlag)]
+
+  #combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj),
+  #    mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj
+  #  # Missing because new pid
+  #  ), by = .(group, unit, content, campaignIndex, salesIndex, adFlag)]
+
+  #combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj),
+  #    mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj
+  #  ), by = .(group, unit, content)]
+
+  #combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj),
+  #    mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj
+  #  ), by = .(group)]
+
+  #combin_df[, AvgRevPerPidDay := NULL]
 
 
-#----------------deal with "missing values" features ---------------------
-# competitorPrice, pharmFormm, category and campaignIndex have missing values
-combin_df[, lapply(.SD, function(x)sum(is.na(x)))] 
+  # Random Effects Encoding ----------------------------------------
+  # TODO:
 
-combin_df[, `:=`(pharmForm_isNA = ifelse(is.na(pharmForm) == TRUE, 1, 0),
-              pharmForm = ifelse(is.na(pharmForm) == TRUE, "-999", pharmForm))]
-combin_df[, `:=`(category_isNA = ifelse(is.na(category) == TRUE, 1, 0),
-              category = ifelse(is.na(category) == TRUE, "-999", category))]
-combin_df[, `:=`(campaignIndex_isNA = ifelse(is.na(campaignIndex) == TRUE, 1, 0),
-              campaignIndex = ifelse(is.na(campaignIndex) == TRUE, "-999", campaignIndex))]
+  # Write To Disk ----------------------------------------
+  setkey(tr, lineID)
+  out <- sprintf(OUT$train, name)
+  write_feather(tr, out)
+  message(sprintf("Wrote: %s", out))
+  rm(tr); gc()
 
-# impute the missing "competitorPrice" features with
-# first, the average price for each pid
-combin_df[, competitorPrice_isNA := ifelse(is.na(competitorPrice) == TRUE, 1, 0)]
-combin_df[, competitorPrice_imputed := ifelse(is.na(competitorPrice)==TRUE, 
-                                              mean(competitorPrice, na.rm=T), competitorPrice),
-          by = pid]
-# still missing, replace with the average price group by the salesIndex, group, content, 
-# adFlag, unit, day_mod_7
-combin_df[, competitorPrice_imputed := ifelse(is.na(competitorPrice_imputed)==TRUE, 
-                                              mean(competitorPrice, na.rm=T), 
-                                              competitorPrice_imputed),
-          by = .(group, day_mod_7, salesIndex, content, unit, adFlag)]
-# still missing,  replace with the average price group by 
-# group, content, unit
-combin_df[, competitorPrice_imputed := ifelse(is.na(competitorPrice_imputed)==TRUE, 
-                                              mean(competitorPrice, na.rm=T), 
-                                              competitorPrice_imputed),
-          by = .(group, content, unit)]
-# if missing, set it to original price (more conservative)
-combin_df[, competitorPrice_imputed := ifelse(is.na(competitorPrice_imputed)==TRUE, 
-                                              price, 
-                                              competitorPrice_imputed)]
-combin_df[, competitorPrice:=NULL]
+  setkey(vd, lineID)
+  out <- sprintf(OUT$validation, name)
+  write_feather(vd, out)
+  message(sprintf("Wrote: %s", out))
+  rm(vd); gc()
 
-#---------------- create "aggregated statistics" features ---------------
-# count by category indicate the "popularity" feature for a product attribute
-combin_df[, content_cnt := log(.N), by = content]
-combin_df[, group_cnt := log(.N), by = group]
-combin_df[, manufacturer_cnt := log(.N), by = manufacturer]
-combin_df[, unit_cnt := log(.N), by = unit]
-combin_df[, pharmForm_cnt := log(.N), by = pharmForm]
-combin_df[, category_cnt := log(.N), by = category]
-combin_df[, campaignIndex_cnt := log(.N), by = campaignIndex]
-combin_df[, salesIndex_cnt := log(.N), by = salesIndex]
-
-# interaction summary statistics table 
-combin_df[, inter_gcucd7_cnt := log(.N), by = .(group, content, unit, campaignIndex, day_mod_7)]
-combin_df[, inter_gcucd10_cnt := log(.N), by = .(group, content, unit, adFlag, day_mod_10)]
-combin_df[, inter_gcucd30_cnt := log(.N), by = .(group, content, unit, availability, day_mod_30)]
-combin_df[, inter_gcuca_cnt := log(.N), by = .(group, content, unit, campaignIndex, availability, adFlag)]
-#can be more...
-
-# revenue by day 
-AvgRevByAdDay7_info <- orig_train_df[, .(AvgRevByAdDay7 = mean(revenue)), by = .(group, content, unit, adFlag, availability, day_mod_7)]
-AvgRevByAdDay10_info <- orig_train_df[, .(AvgRevByAdDay10 = mean(revenue)), by = .(group, content, unit, adFlag, availability, day_mod_10)]
-AvgRevByAdDay30_info <- orig_train_df[, .(AvgRevByAdDay30 = mean(revenue)), by = .(group, content, unit, adFlag, availability, day_mod_30)]
-
-combin_df <- merge(combin_df, AvgRevByAdDay7_info, by = c("group", "content", "unit", "adFlag", "availability", 
-                                             "day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, AvgRevByAdDay10_info, by = c("group", "content", "unit", "adFlag", "availability", 
-                                                          "day_mod_10"), all.x=T)
-combin_df <- merge(combin_df, AvgRevByAdDay30_info, by = c("group", "content", "unit", "adFlag", "availability", 
-                                                          "day_mod_30"), all.x=T)
-to_fix <- c("AvgRevByAdDay7", "AvgRevByAdDay10", "AvgRevByAdDay30")
-combin_df[, (to_fix):= lapply(.SD, function(x) ifelse(is.na(x)==TRUE, mean(x, na.rm = T), x)), 
-          by = .(group, content, unit, adFlag, availability),
-          .SDcols = to_fix]
-combin_df[, (to_fix):= lapply(.SD, function(x) ifelse(is.na(x)==TRUE, mean(x, na.rm = T), x)), 
-          by = .(group, content, unit),
-          .SDcols = to_fix]
-combin_df[, (to_fix):= lapply(.SD, function(x) ifelse(is.na(x)==TRUE, mean(x, na.rm = T), x)), 
-          by = .(group),
-          .SDcols = to_fix]
-rm(AvgRevByAdDay7_info, AvgRevByAdDay10_info, AvgRevByAdDay30_info)
-
-#----------------- create "order rate/revenue per pid by day" features
-# "order propensity per pid by day" features
-pid_orderday7_info <- orig_train_df[, list(cnt_click_byday7 = log(sum(click, na.rm=T)+1),
-                     cnt_basket_byday7 = log(sum(basket, na.rm=T)+1),
-                     cnt_order_byday7 = log(sum(basket, na.rm=T)+1)), by = .(pid, day_mod_7)]
-# integrate the "order propensity by day" features
-combin_df <- merge(combin_df, pid_orderday7_info, by = c("pid", "day_mod_7"), all.x = TRUE)
-to_fix <- c("cnt_click_byday7", "cnt_basket_byday7", "cnt_order_byday7")
-# fix missing values resulted from the new pids in the test set
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, adFlag, salesIndex, campaignIndex, day_mod_7), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group), .SDcols = to_fix]
-rm(pid_orderday7_info, to_fix)
-
-# "revenue per pid by day" features
-# need to be careful about overfitting problem -> use leave one out mean and add noise
-# Ref: http://brooksandrew.github.io/simpleblog/articles/advanced-data-table/
-orig_train_df[, AvgRevPerPidDay := (sum(revenue)-revenue)/(.N-1), by = pid]
-orig_train_df[, AvgRevPerPidDay := sapply(AvgRevPerPidDay, function(x) ifelse(is.na(x)==T, 
-                                                                              rnorm(1,mean(revenue,na.rm = T), 0.2), 
-                                                                              AvgRevPerPidDay)), by = pid]
-# join with the information from the training set
-AvgRevPerPidDay_info <- orig_train_df[, .(lineID, AvgRevPerPidDay), with = T]
-combin_df <- merge(combin_df, AvgRevPerPidDay_info, by = "lineID", all.x=T)
-combin_df$AvgRevPerPidDay[combin_df$day>=93] <- NA
-combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay)==T, mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay),
-          by = .(pid, campaignIndex, salesIndex, adFlag)]   #by pid
-combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj)==T, mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj),
-          by = .(group, unit, content, campaignIndex, salesIndex, adFlag)] #missing because new pid
-combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj)==T, mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj),
-          by = .(group, unit, content)]
-combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj)==T, mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj),
-          by = .(group)]
-combin_df[, AvgRevPerPidDay:=NULL]
-rm(AvgRevPerPidDay_info)
-
-#---------------- decode "string pattern" features from variables ------------------
-# decode "group" variable: group always starts with a number 
-combin_df[, group_beginNum:= sapply(group, function(x) str_extract(x,'[[:number:]]+'))]
-
-# decode "unit" feature:  common --X--X--
-split_units = str_split_fixed(combin_df$content, "X", 3)
-dims = dim(split_units)
-split_units = str_replace_all(split_units, "[[:space:][:alpha:]]", "")
-split_units[split_units == ""] = "1"
-split_units = as.numeric(split_units)
-dim(split_units) = dims
-combin_df[, `:=`(content_part1 = split_units[, 1],
-                 content_part2 = split_units[, 2],
-                 content_part3 = split_units[, 3])]
-combin_df[, total_units := content_part1*content_part2*content_part3]
-rm(split_units)
+  invisible (NULL)
+}
 
 
-#--------------- create "dynamic pricing" features -----------------------
-# general "price difference" feature(each row)
-combin_df[, price_diff := price-competitorPrice_imputed]
-combin_df[, islower_price := as.integer(price_diff < 0)]
-combin_df[, price_discount := (price - rrp)/rrp]
-combin_df[, is_discount := as.integer(price_discount< 0)]
-combin_df[, competitor_price_discount := (competitorPrice_imputed - rrp)/rrp]
-combin_df[, price_discount_diff := price_discount - competitor_price_discount]
-combin_df[, isgreater_discount := as.integer(price_discount_diff> 0)]
-
-# average "price, price difference and discount difference" for click, basket and order
-avg_price_click_info <- orig_train_df[click==1, .(avg_price_click = mean(price)), by = .(pid, day_mod_7)]
-avg_price_basket_info <- orig_train_df[basket==1, .(avg_price_basket = mean(price)), by = .(pid, day_mod_7)]
-avg_price_order_info <- orig_train_df[order==1, .(avg_price_order = mean(price)), by = .(pid, day_mod_7)]
-
-orig_train_df[, price_diff := price-competitorPrice]
-orig_train_df[, price_discount := (price-rrp)/rrp]
-orig_train_df[, competitor_price_discount := (competitorPrice - rrp)/rrp]
-orig_train_df[, price_discount_diff := price_discount-competitor_price_discount]
-
-avg_pricediff_click_info <- orig_train_df[click==1, .(avg_pricediff_click = mean(price_diff)), by = .(pid, day_mod_7)]
-avg_pricediff_basket_info <- orig_train_df[basket==1, .(avg_pricediff_basket = mean(price_diff)), by = .(pid, day_mod_7)]
-avg_pricediff_order_info <- orig_train_df[order==1, .(avg_pricediff_order = mean(price_diff)), by = .(pid, day_mod_7)]
-avg_pricediscdiff_click_info <- orig_train_df[click==1, .(avg_pricediscdiff_click = mean(price_discount_diff)), by = .(pid, day_mod_7)]
-avg_pricediscdiff_basket_info <- orig_train_df[basket==1, .(avg_pricediscdiff_basket = mean(price_discount_diff)), by = .(pid, day_mod_7)]
-avg_pricediscdiff_order_info <- orig_train_df[order==1, .(avg_pricediscdiff_order = mean(price_discount_diff)), by = .(pid, day_mod_7)]
-# join back to the combin_df
-combin_df <- merge(combin_df, avg_price_click_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_price_basket_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_price_order_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_pricediff_click_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_pricediff_basket_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_pricediff_order_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_pricediscdiff_click_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_pricediscdiff_basket_info, by=c("pid","day_mod_7"), all.x=T)
-combin_df <- merge(combin_df, avg_pricediscdiff_order_info, by=c("pid","day_mod_7"), all.x=T)
-# impute missing values
-#combin_df[, names(combin_df)[startsWith(names(combin_df), 'avg')] := NULL]
-combin_df[, lapply(.SD, function(x)sum(is.na(x)))] 
-to_fix <- names(combin_df)[startsWith(names(combin_df), 'avg')]
-# fix missing values resulted from the new pids in the test set
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(pid, salesIndex, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group, content, unit, adFlag), .SDcols = to_fix]
-combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
-          by=.(group), .SDcols = to_fix]
-to_fix1 <- names(combin_df)[startsWith(names(combin_df), 'avg_price_')]
-combin_df[, (to_fix1) := lapply(.SD, function(x) ifelse(is.na(x)==T, price[is.na(x)], x)), .SDcols = to_fix1]
-to_fix2 <- setdiff(to_fix, to_fix1)
-combin_df[, (to_fix2) := lapply(.SD, function(x) ifelse(is.na(x)==T, 0, x)), .SDcols = to_fix2]
-rm(avg_price_click_info, avg_price_basket_info, avg_price_order_info, avg_pricediff_click_info,
-   avg_pricediff_basket_info, avg_pricediff_order_info, avg_pricediscdiff_basket_info,
-   avg_pricediscdiff_click_info,avg_pricediscdiff_order_info, to_fix, to_fix1, to_fix2)
-
-# "group, content, unit, campaignIndex, salesIndex, adFlag" group
-# represent the possibly similar product sector in a compaign
-combin_df[, `:=`(max_price_disc = max(price_discount, na.rm=T),
-              min_price_disc = min(price_discount, na.rm=T),
-              p25_price_disc = quantile(price_discount, probs = 0.25, na.rm=T),
-              median_price_disc = median(price_discount, na.rm=T),
-              p75_price_bygroup = quantile(price_discount, probs = 0.75, na.rm=T)
-              ),
-          by = .(group, content, unit, campaignIndex, salesIndex, adFlag)]
-combin_df[, diff_price_disc := max_price_disc - min_price_disc]
-
-# "price per unit" feature
-combin_df[, rrp_per_unit := rrp/total_units]
-combin_df[, price_per_unit := price/total_units]
-combin_df[, competitorPrice_per_unit := competitorPrice_imputed/total_units]
-
-# pricing trend feature (previous days/records, future days/records)
-# Test Example: tt_df <- combin_df[pid %in% c('10898','10896'), .(pid, price, day)]
-setkey(combin_df, pid, day)
-combin_df[, last_price := shift(price, 1), by = pid]
-combin_df[, last_price := ifelse(is.na(last_price)==T, price, last_price)]
-combin_df[, lprice_chg_pct := (price -last_price)/last_price]
-combin_df[, next_price := shift(price, 1, type = "lead"), by = pid]
-combin_df[, next_price := ifelse(is.na(next_price)==T, price, next_price)]
-combin_df[, nprice_chg_pct := (next_price - price)/price]
-
-combin_df[, last5_price_avg := Reduce('+', shift(price, 1:5))/5, by = pid]
-combin_df[, last5_price_avg := ifelse(is.na(last5_price_avg)==T, price, last5_price_avg)]
-combin_df[, last5_price_min := do.call(pmin, combin_df[, shift(price, 1:5), by = pid][,-1])]
-combin_df[, last5_price_max := do.call(pmax, combin_df[, shift(price, 1:5), by = pid][,-1])]
-combin_df$last5_price_min[is.na(combin_df$last5_price_min)] <- combin_df$price[is.na(combin_df$last5_price_min)]
-combin_df$last5_price_max[is.na(combin_df$last5_price_max)] <- combin_df$price[is.na(combin_df$last5_price_max)]
-combin_df[, last5_price_diff := last5_price_max - last5_price_min]
-combin_df[, avglast5_price_isLower := as.integer(last5_price_avg<price)]
-
-combin_df[, next5_price_avg := Reduce('+', shift(price, 1:5, type = "lead"))/5, by = pid]
-combin_df[, next5_price_avg := ifelse(is.na(next5_price_avg)==T, price, next5_price_avg)]
-combin_df[, next5_price_min := do.call(pmin, combin_df[, shift(price, 1:5, type = "lead"), by = pid][,-1])]
-combin_df[, next5_price_max := do.call(pmax, combin_df[, shift(price, 1:5, type = "lead"), by = pid][,-1])]
-combin_df[, next5_price_min := ifelse(is.na(next5_price_max)==T, price, next5_price_min)]
-combin_df[, next5_price_max := ifelse(is.na(next5_price_max)==T, price, next5_price_max)]
-combin_df[, next5_price_diff := next5_price_max - next5_price_min]
-combin_df[, avgnext5_price_isLower := as.integer(price<next5_price_avg)]
-
-#----------------add "product state last time" features---------------
-setkey(combin_df, pid, day)
-combin_df[, last_avaibility := shift(availability, 1), by = pid]
-combin_df[, last_avaibility := ifelse(is.na(last_avaibility)==T, 5, last_avaibility)]
-combin_df[, last_adFlag := shift(adFlag, 1), by = pid]
-combin_df[, last_adFlag := ifelse(is.na(last_adFlag)==T, 5, last_adFlag)]
-
-# interaction effect
-combin_df[, avaibility_transition := paste(last_avaibility, availability, sep ='-')]
-combin_df[, adFlag_transition := paste(last_adFlag, adFlag, sep ='-')]
-
-
-#-------integrate "random effects" feature for encoding high dimension categorical variables----
-manufacturer_ref <- readRDS("data/interim/manufacturer_ref")
-category_ref <- readRDS("data/interim/category_ref")
-group_ref <- readRDS("data/interim/group_ref")
-content_ref <- readRDS("data/interim/content_ref")
-unit_ref <- readRDS("data/interim/unit_ref")
-pharmForm_ref <- readRDS("data/interim/pharmForm_ref")
-pid_ref <- readRDS("data/interim//pid_ref")
-
-combin_df <- merge(combin_df, pid_ref, by = "pid", all.x = T)
-combin_df <- merge(combin_df, manufacturer_ref, by = "manufacturer", all.x = T)
-combin_df <- merge(combin_df, group_ref, by = "group", all.x = T)
-combin_df <- merge(combin_df, category_ref, by = "category", all.x = T)
-combin_df <- merge(combin_df, unit_ref, by = "unit", all.x = T)
-combin_df <- merge(combin_df, pharmForm_ref, by = "pharmForm", all.x = T)
-combin_df <- merge(combin_df, content_ref, by = "content", all.x = T)
-
-fix_cols <- c("pid_ref", "manufacturer_ref", "category_ref","pharmForm_ref", "unit_ref", "content_ref")
-combin_df[, (fix_cols):= lapply(.SD, function(x) ifelse(is.na(x)==TRUE, mean(x, na.rm = T), x)), 
-          .SDcols = fix_cols]
-rm(manufacturer_ref, category_ref, group_ref, content_ref, unit_ref, 
-   pharmForm_ref,pid_ref)
-
-#------- dummy categorical variable representation --------------
-#combin_df[, lapply(.SD, function(x) length(unique(x))),.SDcols = to_string_vars]
-#combin <- dummy.data.frame(combin_df, names = c("unit","salesIndex", "campainIndex"), sep = "_")
-#or just use as.factor() -> sparse.matrix() in the R modeling pipeline
- 
-
-#-------- delete unused variables---------------------------------
-
-
-#--------------- Recover the data ---------------------------------
-train_df <- combin_df[day<= 77,]
-tmp_train_label <- orig_train_df[day<=77, .(lineID, day, click, basket, order, revenue)]
-train_df <- merge(tmp_train_label, train_df, by = c("lineID", "day"), all = T)
-write_feather(train_df, 'data/processed/training_set.feather')
-
-valid_df <- combin_df[day>77 & day<=92,]
-tmp_valid_label <- orig_train_df[day>77 & day<=92, .(lineID, day, click, basket, order, revenue)]
-valid_df <- merge(valid_df, tmp_valid_label, by = c("lineID", "day"), all = T)
-write_feather(valid_df, 'data/processed/validation_set.feather')
-
-test_df <- combin_df[day>=93,]
-write_feather(test_df, 'data/processed/test_set.feather')
-rm(train_df, valid_df, test_df)
-rm(tmp_train_label, tmp_valid_label)
+main()
