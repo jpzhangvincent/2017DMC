@@ -93,8 +93,8 @@ rm(group_purchase_info, to_fix)
 buy_one_info <- orig_train_df[, list(buy_one_prob = length(num_items_bought[num_items_bought==1])/.N), by = pid]
 # "purchance more probability" feature
 buy_more_info <- orig_train_df[, list(buy_more_prob = length(num_items_bought[num_items_bought>1])/.N), by = pid]
-combin_df <- merge(combin_df, buy_one_info, on ="pid", all.x =TRUE)
-combin_df <- merge(combin_df, buy_more_info, on = "pid", all.x=TRUE)
+combin_df <- merge(combin_df, buy_one_info, by ="pid", all.x =TRUE)
+combin_df <- merge(combin_df, buy_more_info, by = "pid", all.x=TRUE)
 # similarily, need to fix missing values resulted from the new pids in the test set
 to_fix <- c("buy_one_prob", "buy_more_prob")
 combin_df[, (to_fix) := lapply(.SD, function(x) ifelse(is.na(x)==T, mean(x, na.rm=T), x)),
@@ -418,3 +418,34 @@ test_df <- combin_df[day>=93,]
 write_feather(test_df, 'data/processed/test_set.feather')
 rm(train_df, valid_df, test_df)
 rm(tmp_train_label, tmp_valid_label)
+
+#------------- Create "nonlinear features" with deep learning ---------------
+library(h2o)
+train_set.hex <- as.h2o(train_df, destination_frame = "train_set.hex")
+# factorize the categorical variables
+train_set.hex$order <- as.factor(train_set.hex$order)
+train_set.hex$manufacturer <- as.factor(train_set.hex$manufacturer)
+train_set.hex$pharmForm <- as.factor(train_set.hex$pharmForm)
+train_set.hex$group <- as.factor(train_set.hex$group)
+train_set.hex$unit <- as.factor(train_set.hex$unit)
+train_set.hex$category <- as.factor(train_set.hex$category)
+train_set.hex$campaignIndex <- as.factor(train_set.hex$campaignIndex)
+train_set.hex$salesIndex <- as.factor(train_set.hex$salesIndex)
+train_set.hex$adFlag <- as.factor(train_set.hex$adFlag)
+train_set.hex$last_adFlag <- as.factor(train_set.hex$last_adFlag)
+train_set.hex$availability <- as.factor(train_set.hex$availability)
+train_set.hex$last_avaibility <- as.factor(train_set.hex$last_avaibility)
+train_set.hex$group_beginNum <- as.factor(train_set.hex$group_beginNum)
+train_set.hex$genericProduct <- as.factor(train_set.hex$genericProduct)
+train_set.hex$content <- as.factor(train_set.hex$content)
+train_set.hex$avaibility_transition <- as.factor(train_set.hex$avaibility_transition)
+train_set.hex$adFlag_transition <- as.factor(train_set.hex$adFlag_transition)
+# response and predictors
+y <- "order"
+predictors <- setdiff(names(train_set), c("pid", "lineID", "day","order", "basket", "click", "revenue",
+                                          "num_items_bought", "weight_quantity", "fold_indicator", 
+                                          "content_part1", "content_part2", "content_part3"))
+.dl = h2o.deeplearning(x = predictors, y = y, training_frame = train_set.hex,
+                               hidden = c(100, 200), epochs = 5)
+prostate.deepfeatures_layer1 = h2o.deepfeatures(prostate.dl, prostate.hex, layer = 1)
+prostate.deepfeatures_layer2 = h2o.deepfeatures(prostate.dl, prostate.hex, layer = 2)
