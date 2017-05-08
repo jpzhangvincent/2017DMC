@@ -10,12 +10,12 @@ library(data.table)
 library(feather)
 
 IN <- list(
-  train = "../data/interim/02_nolabel_feat_train.feather",
-  test  = "../data/interim/02_nolabel_feat_test.feather")
+  train = "../data/interim/2_nolabel_feat_train.feather",
+  test  = "../data/interim/2_nolabel_feat_test.feather")
 
 OUT <- list(
-  train      = "../data/03_%s_train.feather",
-  validation = "../data/03_%s_test.feather")
+  train      = "../data/interim/3_end%i_train.feather",
+  validation = "../data/interim/3_end%i_test.feather")
 
 LABEL_COLS <- c("click", "basket", "order", "revenue", "order_qty")
 
@@ -26,37 +26,34 @@ main <- function() {
 
   n_folds <- max(train$fold)
   for ( i in seq.int(2, n_folds) ) {
-    if (i == n_folds) {
-      name <- "leader"
-      message("Computing features for [1 ... ] [leader].")
-    } else {
-      name <- sprintf("iter_%02i", i - 1)
-      message(sprintf("Computing features for [1 ... ] [%i].", i))
-    }
+    end_tr <- max(train[fold == i - 1, day])
+    end_vd <- max(train[fold == i, day])
+    message(sprintf(
+      "Computing features for [ 1 ... %i ] [ ... %i ].", end_tr, end_vd))
 
     # Separate folds into training and validation sets.
     df <- copy(train[fold <= i, ])
 
-    make_label_features(df, i, name)
+    make_label_features(df, i, end = end_tr)
 
     rm(df); gc()
   }
 
-  message("Computing features for [train] [test].")
+  message("Computing features for [1 ... 92 ] [ ... ].")
   test <- data.table(read_feather(IN$test))
   test$fold <- 1000
 
   train <- rbind(train, test, fill = TRUE)
   rm(test); gc()
 
-  make_label_features(train, 1000, "final")
+  make_label_features(train, 1000, end = 92)
 
   invisible (NULL)
 }
 
 
 
-make_label_features <- function(df, i, name) {
+make_label_features <- function(df, i, end) {
 
   log1sum = function(x) log(sum(x) + 1)
 
@@ -153,11 +150,10 @@ make_label_features <- function(df, i, name) {
   df[fold < i, `:=`(
       # FIXME: These can produce Inf in some cases.
       # Truncate infinite values at ___.
-      # log1(x) = log(1 + x)
       # Action Propensities --------------------
-      click_propensity    = log1( mean(click) / (1 - mean(click)) )
-      , basket_propensity = log1( mean(basket) / (1 - mean(basket)) )
-      , order_propensity  = log1( mean(order) / (1 - mean(order)) )
+      click_propensity    = log1p( mean(click) / (1 - mean(click)) )
+      , basket_propensity = log1p( mean(basket) / (1 - mean(basket)) )
+      , order_propensity  = log1p( mean(order) / (1 - mean(order)) )
     ), by = by]
 
 
@@ -237,11 +233,11 @@ make_label_features <- function(df, i, name) {
   # Write To Disk ----------------------------------------
   setkey(df, lineID)
 
-  out <- sprintf(OUT$train, name)
+  out <- sprintf(OUT$train, end)
   write_feather(df[fold < i, ], out)
   message(sprintf("Wrote: %s", out))
 
-  out <- sprintf(OUT$validation, name)
+  out <- sprintf(OUT$validation, end)
   write_feather(df[fold == i, !LABEL_COLS, with = FALSE], out)
   message(sprintf("Wrote: %s", out))
 
