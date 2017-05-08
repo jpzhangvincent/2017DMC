@@ -152,10 +152,12 @@ make_label_features <- function(df, i, name) {
   oldcols = copy(colnames(df))
   df[fold < i, `:=`(
       # FIXME: These can produce Inf in some cases.
+      # Truncate infinite values at ___.
+      # log1(x) = log(1 + x)
       # Action Propensities --------------------
-      click_propensity    = mean(click) / (1 - mean(click))
-      , basket_propensity = mean(basket) / (1 - mean(basket))
-      , order_propensity  = mean(order) / (1 - mean(order))
+      click_propensity    = log1( mean(click) / (1 - mean(click)) )
+      , basket_propensity = log1( mean(basket) / (1 - mean(basket)) )
+      , order_propensity  = log1( mean(order) / (1 - mean(order)) )
     ), by = by]
 
 
@@ -257,6 +259,10 @@ fill_label_features <- function(df, to_fix, by) {
 
 # Impute label features for novel pids.
 impute_label_features <- function(df, to_fix) {
+  df[, (to_fix)
+      := lapply(.SD, function(x) ifelse(is.na(x), mean(x, na.rm = T), x)),
+    by = "deduplicated_pid", .SDcols = to_fix]
+
   # 1st Attempt
   by <- c("group", "content", "unit", "adFlag", "salesIndex", "campaignIndex",
     "day_mod_7")
