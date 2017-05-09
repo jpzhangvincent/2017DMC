@@ -15,7 +15,8 @@ IN_MERGE <- c(
   "../data/merge/end63_dpid_ranef.rds"
   , "../data/merge/end63_dpid_day7_ranef.rds"
   , "../data/merge/end63_dpid_day10_ranef.rds"
-  , "../data/merge/item_cluster_feature.Rds")
+  #, "../data/merge/item_cluster_feature.rds"
+  )
 
 
 main <- function() {
@@ -24,9 +25,11 @@ main <- function() {
   test <- data.table(read_feather(IN$test))
 
   for (f in IN_MERGE) {
+    message(sprintf("Merging: %s", f))
     enc <- readRDS(f)
 
-    cols <- setdiff(colnames(enc)[!endsWith(colnames(enc), "ref")], c("cluster"))
+    cols <- colnames(enc)
+    cols <- cols[!( endsWith(cols, "ref") | cols %in% c("cluster") )]
     enc[, (cols) := lapply(.SD, as.integer), .SDcols = cols]
 
     setkeyv(train, cols)
@@ -35,13 +38,16 @@ main <- function() {
 
     train <- merge(train, enc, all.x = TRUE)
     test <- merge(test, enc, all.x = TRUE)
+    message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
   }
 
   setkey(train, lineID)
   write_feather(train, "../data/end63_train.feather")
+  message("Wrote: ../data/end63_train.feather")
 
   setkey(test, lineID)
   write_feather(test, "../data/end63_test.feather")
+  message("Wrote: ../data/end63_test.feather")
 }
 
 
