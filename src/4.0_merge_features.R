@@ -14,7 +14,8 @@ IN <- list(
 IN_MERGE <- c(
   "../data/merge/end63_dpid_ranef.rds"
   , "../data/merge/end63_dpid_day7_ranef.rds"
-  , "../data/merge/end63_dpid_day10_ranef.rds")
+  , "../data/merge/end63_dpid_day10_ranef.rds"
+  , "../data/merge/item_cluster_feature.Rds")
 
 
 main <- function() {
@@ -25,7 +26,7 @@ main <- function() {
   for (f in IN_MERGE) {
     enc <- readRDS(f)
 
-    cols <- colnames(enc)[!endsWith(colnames(enc), "ref")]
+    cols <- setdiff(colnames(enc)[!endsWith(colnames(enc), "ref")], c("cluster"))
     enc[, (cols) := lapply(.SD, as.integer), .SDcols = cols]
 
     setkeyv(train, cols)
