@@ -238,7 +238,7 @@ make_label_features <- function(df, i, end) {
   message(sprintf("Wrote: %s", out))
 
   out <- sprintf(OUT$validation, end)
-  write_feather(df[fold == i, !LABEL_COLS, with = FALSE], out)
+  write_feather(df[fold == i, ], out)
   message(sprintf("Wrote: %s", out))
 
   invisible (NULL)
