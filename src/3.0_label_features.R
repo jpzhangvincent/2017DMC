@@ -58,7 +58,7 @@ make_label_features <- function(df, i, end) {
   log1sum = function(x) log(sum(x) + 1)
 
   # By pid ----------------------------------------
-  by = "pid"
+  by = "deduplicated_pid"
   setkeyv(df, by)
 
   oldcols = copy(colnames(df))
@@ -87,7 +87,7 @@ make_label_features <- function(df, i, end) {
   impute_label_features(df, to_fix)
 
   # By (pid, day_mod_7) ----------------------------------------
-  by = c("pid", "day_mod_7")
+  by = c("deduplicated_pid", "day_mod_7")
   setkeyv(df, by)
 
   # Order Rates --------------------
