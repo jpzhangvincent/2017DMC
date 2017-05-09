@@ -174,14 +174,14 @@ df[, `:=`(
 
 # Counts ----------------------------------------
 # Count by level to get "popularity" feature for each product attribute
-df[, content_cnt := log(.N), by = content]
-df[, group_cnt := log(.N), by = group]
-df[, manufacturer_cnt := log(.N), by = manufacturer]
-df[, unit_cnt := log(.N), by = unit]
-df[, pharmForm_cnt := log(.N), by = pharmForm]
-df[, category_cnt := log(.N), by = category]
-df[, campaignIndex_cnt := log(.N), by = campaignIndex]
-df[, salesIndex_cnt := log(.N), by = salesIndex]
+df[, content_d7cnt := log(.N), by = .(content, day_mod_7)]
+df[, group_d7cnt := log(.N), by = .(group, day_mod_7)]
+df[, manufacturer_d7cnt := log(.N), by =.(manufacturer, day_mod_7)]
+df[, unit_d7cnt := log(.N), by = .(unit, day_mod_7)]
+df[, pharmForm_d7cnt := log(.N), by = .(pharmForm, day_mod_7)]
+df[, category_d7cnt := log(.N), by = .(category, day_mod_7)]
+df[, campaignIndex_d7cnt := log(.N), by = .(campaignIndex, day_mod_7)]
+df[, salesIndex_d7cnt := log(.N), by = .(salesIndex, day_mod_7)]
 
 # Interaction summary statistics
 df[, inter_gcucd7_cnt := log(.N),
