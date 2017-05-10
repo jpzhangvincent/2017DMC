@@ -21,22 +21,24 @@ LABEL_COLS <- c("click", "basket", "order", "revenue", "order_qty")
 
 
 # This function runs first when the script is sourced/executed.
-main <- function() {
+main <- function(useCV = FALSE) {
   train <- data.table(read_feather(IN$train))
-
-  n_folds <- max(train$fold)
-  for ( i in seq.int(2, n_folds) ) {
-    end_tr <- max(train[fold == i - 1, day])
-    end_vd <- max(train[fold == i, day])
-    message(sprintf(
-      "Computing features for [ 1 ... %i ] [ ... %i ].", end_tr, end_vd))
-
-    # Separate folds into training and validation sets.
-    df <- copy(train[fold <= i, ])
-
-    make_label_features(df, i, end = end_tr)
-
-    rm(df); gc()
+  
+  if(useCV){
+    n_folds <- max(train$fold)
+    for ( i in seq.int(2, n_folds) ) {
+      end_tr <- max(train[fold == i - 1, day])
+      end_vd <- max(train[fold == i, day])
+      message(sprintf(
+        "Computing features for [ 1 ... %i ] [ ... %i ].", end_tr, end_vd))
+      
+      # Separate folds into training and validation sets.
+      df <- copy(train[fold <= i, ])
+      
+      make_label_features(df, i, end = end_tr)
+      
+      rm(df); gc()
+    } 
   }
 
   message("Computing features for [1 ... 92 ] [ ... ].")
