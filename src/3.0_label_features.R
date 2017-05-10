@@ -20,10 +20,13 @@ OUT <- list(
 LABEL_COLS <- c("click", "basket", "order", "revenue", "order_qty")
 
 
+
+
 # This function runs first when the script is sourced/executed.
-main <- function(useCV = FALSE) {
+main <- function(train_folds = 5, useCV = FALSE) {
   train <- data.table(read_feather(IN$train))
   
+  # use time sliced cross validation scheme
   if(useCV){
     n_folds <- max(train$fold)
     for ( i in seq.int(2, n_folds) ) {
@@ -39,6 +42,21 @@ main <- function(useCV = FALSE) {
       
       rm(df); gc()
     } 
+  }
+  
+  # use the specific train-test split
+  if(train_folds>=2){
+    end_tr <- max(train[fold == train_folds - 1, day])
+    end_vd <- max(train[fold == train_folds, day])
+    message(sprintf(
+      "Computing features for [ 1 ... %i ] [ ... %i ].", end_tr, end_vd))
+    
+    # Separate folds into training and validation sets.
+    df <- copy(train[fold <= train_folds, ])
+    
+    make_label_features(df, train_folds, end = end_tr)
+    
+    rm(df); gc() 
   }
 
   message("Computing features for [1 ... 92 ] [ ... ].")
