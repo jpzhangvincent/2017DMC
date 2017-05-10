@@ -13,9 +13,9 @@ IN <- list(
   test  = "../data/raw/class.csv")
 
 OUT <- list(
-  items = "../data/interim/01_clean_items.feather",
-  train = "../data/interim/01_clean_train.feather",
-  test  = "../data/interim/01_clean_test.feather")
+  items = "../data/interim/1_clean_items.feather",
+  train = "../data/interim/1_clean_train.feather",
+  test  = "../data/interim/1_clean_test.feather")
 
 NA_STRINGS <- c("", " ", "NA")
 

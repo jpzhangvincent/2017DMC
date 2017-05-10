@@ -32,13 +32,13 @@ library(feather)
 library(stringr)
 
 IN <- list(
-  items = "../data/interim/01_clean_items.feather",
-  train = "../data/interim/01_clean_train.feather",
-  test  = "../data/interim/01_clean_test.feather")
+  items = "../data/interim/1_clean_items.feather",
+  train = "../data/interim/1_clean_train.feather",
+  test  = "../data/interim/1_clean_test.feather")
 
 OUT <- list(
-  train = "../data/interim/02_nolabel_feat_train.feather",
-  test  = "../data/interim/02_nolabel_feat_test.feather")
+  train = "../data/interim/2_nolabel_feat_train.feather",
+  test  = "../data/interim/2_nolabel_feat_test.feather")
 
 BREAKS <- c(21, 14, 14, 14, 14, 15)
 
