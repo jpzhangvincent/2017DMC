@@ -196,17 +196,19 @@ df[, inter_gcuca_cnt := log(.N),
 # Price Trends ----------------------------------------
 shift_mean = function(x, n, ...) Reduce("+", shift(x, 1:n, ...)) / n
 
+setkey(df, lineID, pid)
+
 # Is median ideal fill value?
 df[, `:=`(
     prev_price = shift(price, 1, median(price))
-    , prev5_price_avg = shift_mean(price, 5, median(price))
-    , prev5_price_min = do.call(pmin, shift(price, 1:5, median(price)))
-    , prev5_price_max = do.call(pmax, shift(price, 1:5, median(price)))
+    , prev5_price_avg = shift_mean(price, 5, price[[1]])
+    , prev5_price_min = do.call(pmin, shift(price, 1:5, price[[1]]))
+    , prev5_price_max = do.call(pmax, shift(price, 1:5, price[[1]]))
 
     , next_price = shift(price, 1, median(price), type = "lead")
     , next5_price_avg = shift_mean(price, 5, median(price), type = "lead")
-    , next5_price_min = do.call(pmin, shift(price, 1:5, median(price)))
-    , next5_price_max = do.call(pmax, shift(price, 1:5, median(price)))
+    , next5_price_min = do.call(pmin, shift(price, 1:5, price[[1]]))
+    , next5_price_max = do.call(pmax, shift(price, 1:5, price[[1]]))
   ), by = pid]
 
 df[, `:=`(
