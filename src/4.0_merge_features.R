@@ -13,8 +13,6 @@ IN <- list(
 
 IN_MERGE <- c(
   "../data/merge/end63_dpid_ranef.rds"
-  , "../data/merge/end63_dpid_day7_ranef.rds"
-  , "../data/merge/end63_dpid_day10_ranef.rds"
   #, "../data/merge/item_cluster_feature.rds"
   )
 
