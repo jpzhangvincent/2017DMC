@@ -37,10 +37,10 @@ Likelihood_Train_Generator <- function(X_train, y_train, var_name, noise_sd = 0.
 likelihood_list <- c('pid',"manufacturer",'group')
 
 for(likelihood_term in likelihood_list){
-  LL_train = Likelihood_Train_Generator(train_set, train_set$order, likelihood_term)
+  LL_train = as.numeric(Likelihood_Train_Generator(train_set, train_set$order, likelihood_term))
   train_set <- cbind(train_set, LL_train)
   names(train_set)[names(train_set) == 'LL_train'] = paste(likelihood_term,'likelihood',sep='_')
-  LL_valid = Likelihood_Test_Generator(train_set, train_set$order, pesudo_test_set, likelihood_term)
+  LL_valid = as.numeric(Likelihood_Test_Generator(train_set, train_set$order, pesudo_test_set, likelihood_term))
   pesudo_test_set <- cbind(pesudo_test_set, LL_valid)
   names(pesudo_test_set)[names(pesudo_test_set) == 'LL_valid'] = paste(likelihood_term,'likelihood',sep='_')
 }
