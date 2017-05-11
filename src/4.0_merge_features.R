@@ -12,11 +12,6 @@ IN = list(
   train  = "../data/interim/3_end63_train.feather"
   , test = "../data/interim/3_end63_test.feather")
 
-IN_AUTOMERGE = c(
-  "../data/merge/end63_dpid_ranef.rds"
-  #, "../data/merge/item_cluster_feature.rds"
-  )
-
 
 main = function() {
   train_paths = list.files("../data/interim/", "3_end.+train.feather",
@@ -32,7 +27,7 @@ write_merge = function(path) {
   test = data.table(read_feather(path))
 
   end = str_match(path, "3_(end..)_")[2]
-  auto = list.files("../data/merge/", "rds$", full.names = TRUE)
+  auto = list.files("../data/merge/", "correct.rds$", full.names = TRUE)
   auto = auto[startsWith(basename(auto), end)]
 
   # Automatically merge features with key columns.

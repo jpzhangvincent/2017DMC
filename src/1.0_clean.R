@@ -21,29 +21,34 @@ NA_STRINGS <- c("", " ", "NA")
 
 
 # ==================== ITEMS ====================
-if (!file.exists(OUT$items)) {
-  items <- fread(IN$items, na.strings = NA_STRINGS)
+items <- fread(IN$items, na.strings = NA_STRINGS)
 
-  # Stringify --------------------
-  str_cols <- c("manufacturer", "group", "content", "unit", "pharmForm",
-    "salesIndex", "category", "campaignIndex")
-  items[, (str_cols) := lapply(.SD, str_to_lower), .SDcols = str_cols]
+# Stringify --------------------
+str_cols <- c("manufacturer", "group", "content", "unit", "pharmForm",
+  "salesIndex", "category", "campaignIndex")
+items[, (str_cols) := lapply(.SD, str_to_lower), .SDcols = str_cols]
 
-  # Missing Values --------------------
-  items[, `:=`(
-      pharmForm_is_na = as.integer(is.na(pharmForm))
-      , pharmForm = ifelse(is.na(pharmForm), "?", pharmForm)
+# Missing Values --------------------
+items[, `:=`(
+    pharmForm_is_na = as.integer(is.na(pharmForm))
+    , pharmForm = ifelse(is.na(pharmForm), "?", pharmForm)
 
-      , category_is_na = as.integer(is.na(category))
-      , category = ifelse(is.na(category), "?", category)
+    , category_is_na = as.integer(is.na(category))
+    , category = ifelse(is.na(category), "?", category)
 
-      , campaignIndex_is_na = as.integer(is.na(campaignIndex))
-      , campaignIndex = ifelse(is.na(campaignIndex), "?", campaignIndex)
-    )]
+    , campaignIndex_is_na = as.integer(is.na(campaignIndex))
+    , campaignIndex = ifelse(is.na(campaignIndex), "?", campaignIndex)
+  )]
 
-  write_feather(items, OUT$items)
-  message(sprintf("Wrote: %s", OUT$items))
-}
+# Deduplicate Items --------------------
+# NOTE: This must be computed before other features!
+setkey(items, pid)
+
+items[, deduplicated_pid := pid[[1]], by = setdiff(colnames(items), "pid")]
+
+# Write --------------------
+write_feather(items, OUT$items)
+message(sprintf("Wrote: %s", OUT$items))
 
 
 # ==================== TRAIN & TEST ====================
@@ -64,8 +69,6 @@ clean_lines <- function(in_path, out_path, has_labels = FALSE) {
 }
 
 
-if (!file.exists(OUT$train))
-  clean_lines(IN$train, OUT$train, has_labels = TRUE)
-if (!file.exists(OUT$test))
-  clean_lines(IN$test, OUT$test)
+clean_lines(IN$train, OUT$train, has_labels = TRUE)
+clean_lines(IN$test, OUT$test)
 

@@ -46,10 +46,6 @@ BREAKS <- c(21, 14, 14, 14, 14, 15)
 # ==================== ITEMS ====================
 items <- data.table(read_feather(IN$items))
 
-# Deduplicate Items --------------------
-# NOTE: This must be computed before other features!
-items[, deduplicated_pid := pid[[1]], by = setdiff(colnames(items), "pid")]
-
 # Decode Content (00x00x00) --------------------
 split_units = str_split_fixed(items$content, "x", 3)
 dims = dim(split_units)
