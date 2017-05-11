@@ -109,6 +109,12 @@ df[, `:=`(
     , day_mod_30 = day %% 30
   )]
 
+# Percent Of Day ----------------------------------------
+
+setkey(df, lineID)
+
+df[, percent_of_day := seq.int(0, 1, length.out = .N), by = day]
+
 # Impute competitorPrice ----------------------------------------
 # Fill NAs with means from successively coarser groupings.
 df[, `:=`(
