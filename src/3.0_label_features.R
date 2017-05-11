@@ -149,14 +149,18 @@ make_label_features <- function(df, i, end) {
   by = c("group", "content", "unit", "availability", "adFlag")
   setkeyv(df, by)
 
+  odds_ratio = function(x, trunc) {
+    x = log1p( mean(x) / (1 - mean(x)) )
+    x[is.infinite(x)] = trunc
+    return (x)
+  }
+
   oldcols = copy(colnames(df))
   df[fold < i, `:=`(
-      # FIXME: These can produce Inf in some cases.
-      # Truncate infinite values at ___.
       # Action Propensities --------------------
-      click_propensity    = log1p( mean(click) / (1 - mean(click)) )
-      , basket_propensity = log1p( mean(basket) / (1 - mean(basket)) )
-      , order_propensity  = log1p( mean(order) / (1 - mean(order)) )
+      click_propensity    = odds_ratio(click, trunc = 400)
+      , basket_propensity = odds_ratio(basket, trunc = 100)
+      , order_propensity  = odds_ratio(order, trunc = 10)
     ), by = by]
 
 
