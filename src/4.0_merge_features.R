@@ -6,67 +6,89 @@
 
 library(data.table)
 library(feather)
+library(stringr)
 
-IN <- list(
+IN = list(
   train  = "../data/interim/3_end63_train.feather"
   , test = "../data/interim/3_end63_test.feather")
 
-IN_AUTOMERGE <- c(
+IN_AUTOMERGE = c(
   "../data/merge/end63_dpid_ranef.rds"
   #, "../data/merge/item_cluster_feature.rds"
   )
 
 
-main <- function() {
-  train <- data.table(read_feather(IN$train))
-  test <- data.table(read_feather(IN$test))
+main = function() {
+  train_paths = list.files("../data/interim/", "3_end.+train.feather",
+    full.names = TRUE)
+  for (p in train_paths)
+    write_merge(p)
+}
+
+write_merge = function(path) {
+  train = data.table(read_feather(path))
+
+  path = str_replace(path, "train[.]feather$", "test.feather")
+  test = data.table(read_feather(path))
+
+  end = str_match(path, "3_(end..)_")[2]
+  auto = list.files("../data/merge/", "rds$", full.names = TRUE)
+  auto = auto[startsWith(basename(auto), end)]
 
   # Automatically merge features with key columns.
-  #for (f in IN_AUTOMERGE) {
-  #  message(sprintf("Merging: %s", f))
-  #  enc <- readRDS(f)
+  for (f in auto) {
+    message(sprintf("Merging: %s", f))
+    enc = readRDS(f)
 
-  #  cols <- colnames(enc)
-  #  cols <- cols[!( endsWith(cols, "ref") | cols %in% c("cluster") )]
-  #  enc[, (cols) := lapply(.SD, as.integer), .SDcols = cols]
+    cols = colnames(enc)
+    cols = cols[!( endsWith(cols, "ref") | cols %in% c("cluster") )]
+    enc[, (cols) := lapply(.SD, as.integer), .SDcols = cols]
 
-  #  setkeyv(train, cols)
-  #  setkeyv(test, cols)
-  #  setkeyv(enc, cols)
+    setkeyv(train, cols)
+    setkeyv(test, cols)
+    setkeyv(enc, cols)
 
-  #  train <- merge(train, enc, all.x = TRUE)
-  #  test <- merge(test, enc, all.x = TRUE)
-  #  message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
-  #}
+    train = merge(train, enc, all.x = TRUE)
+    test = merge(test, enc, all.x = TRUE)
+    message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
+  }
+
 
   # Manually merge PMI.
 
-  train[["pmi_group"]] <- merge_pmi(train, "group")
-  train[is.na(pmi_group), pmi_group := 0]
+  #train[["pmi_group"]] = merge_pmi(train, "group")
+  #train[is.na(pmi_group), pmi_group := 0]
 
-  test[["pmi_group"]] <- merge_pmi(test, "group")
-  test[is.na(pmi_group), pmi_group := 0]
+  #test[["pmi_group"]] = merge_pmi(test, "group")
+  #test[is.na(pmi_group), pmi_group := 0]
+
+
+  # Write to ../data/end##
+  prefix = dirname(dirname(path))
+  prefix = file.path(prefix, end)
 
   setkey(train, lineID)
-  write_feather(train, "../data/end63_train.feather")
-  message("Wrote: ../data/end63_train.feather")
+  path = paste0(prefix, "_train.feather")
+  write_feather(train, path)
+  message(sprintf("Wrote: %s", path))
 
   setkey(test, lineID)
-  write_feather(test, "../data/end63_test.feather")
-  message("Wrote: ../data/end63_test.feather")
+  path = paste0(prefix, "_test.feather")
+  write_feather(test, path)
+  message(sprintf("Wrote: %s", path))
 }
 
 
-merge_pmi <- function(df, g) {
+merge_pmi = function(df, g) {
   # FIXME: This needs to work for other day ranges.
-  pmi <- read_feather("../data/merge/pmi_group.feather")
+  pmi = read_feather("../data/merge/pmi_group.feather")
 
   # Get the transitions in the format A/B.
-  transitions <- rbind(df[[g]], shift(df[[g]], 1))
-  transitions <- apply(transitions, 2,
+  transitions = rbind(df[[g]], shift(df[[g]], 1))
+  transitions = apply(transitions, 2,
     function(col) paste(sort(col, na.last = TRUE), collapse = "/"))
 
-  i <- match(transitions, pmi[[g]])
+  i = match(transitions, pmi[[g]])
 
   return (pmi[["pmi_group"]][i])
 }
