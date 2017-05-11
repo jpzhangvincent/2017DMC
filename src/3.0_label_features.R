@@ -20,15 +20,13 @@ OUT <- list(
 LABEL_COLS <- c("click", "basket", "order", "revenue", "order_qty")
 
 
-
-
 # This function runs first when the script is sourced/executed.
 # Set `folds` to a vector of desired splits.
 main <- function(folds) {
   train <- data.table(read_feather(IN$train))
   
-  if (missing(fold))
-    folds = seq.int(2, max(train$fold))
+  if (missing(folds))
+    folds = seq.int(5, max(train$fold))
 
   for ( i in folds ) {
     end_tr <- max(train[fold == i - 1, day])
