@@ -11,7 +11,7 @@ IN <- list(
   train  = "../data/interim/3_end63_train.feather"
   , test = "../data/interim/3_end63_test.feather")
 
-IN_MERGE <- c(
+IN_AUTOMERGE <- c(
   "../data/merge/end63_dpid_ranef.rds"
   , "../data/merge/end63_dpid_day7_ranef.rds"
   , "../data/merge/end63_dpid_day10_ranef.rds"
@@ -20,26 +20,34 @@ IN_MERGE <- c(
 
 
 main <- function() {
-  # Merge random effect encoding.
   train <- data.table(read_feather(IN$train))
   test <- data.table(read_feather(IN$test))
 
-  for (f in IN_MERGE) {
-    message(sprintf("Merging: %s", f))
-    enc <- readRDS(f)
+  # Automatically merge features with key columns.
+  #for (f in IN_AUTOMERGE) {
+  #  message(sprintf("Merging: %s", f))
+  #  enc <- readRDS(f)
 
-    cols <- colnames(enc)
-    cols <- cols[!( endsWith(cols, "ref") | cols %in% c("cluster") )]
-    enc[, (cols) := lapply(.SD, as.integer), .SDcols = cols]
+  #  cols <- colnames(enc)
+  #  cols <- cols[!( endsWith(cols, "ref") | cols %in% c("cluster") )]
+  #  enc[, (cols) := lapply(.SD, as.integer), .SDcols = cols]
 
-    setkeyv(train, cols)
-    setkeyv(test, cols)
-    setkeyv(enc, cols)
+  #  setkeyv(train, cols)
+  #  setkeyv(test, cols)
+  #  setkeyv(enc, cols)
 
-    train <- merge(train, enc, all.x = TRUE)
-    test <- merge(test, enc, all.x = TRUE)
-    message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
-  }
+  #  train <- merge(train, enc, all.x = TRUE)
+  #  test <- merge(test, enc, all.x = TRUE)
+  #  message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
+  #}
+
+  # Manually merge PMI.
+
+  train[["pmi_group"]] <- merge_pmi(train, "group")
+  train[is.na(pmi_group), pmi_group := 0]
+
+  test[["pmi_group"]] <- merge_pmi(test, "group")
+  test[is.na(pmi_group), pmi_group := 0]
 
   setkey(train, lineID)
   write_feather(train, "../data/end63_train.feather")
@@ -48,6 +56,21 @@ main <- function() {
   setkey(test, lineID)
   write_feather(test, "../data/end63_test.feather")
   message("Wrote: ../data/end63_test.feather")
+}
+
+
+merge_pmi <- function(df, g) {
+  # FIXME: This needs to work for other day ranges.
+  pmi <- read_feather("../data/merge/pmi_group.feather")
+
+  # Get the transitions in the format A/B.
+  transitions <- rbind(df[[g]], shift(df[[g]], 1))
+  transitions <- apply(transitions, 2,
+    function(col) paste(sort(col, na.last = TRUE), collapse = "/"))
+
+  i <- match(transitions, pmi[[g]])
+
+  return (pmi[["pmi_group"]][i])
 }
 
 
