@@ -53,6 +53,21 @@ write_merge = function(path) {
     message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
   }
 
+  # Add lagged random effects.
+  setkey(train, lineID)
+  setkey(test, lineID)
+
+  tail_train_pid_ref = tail(train$pid_ref, 1)
+  head_test_pid_ref = head(test$pid_ref, 1)
+
+  train[, `:=`(
+      prev_pid_ref = shift(pid_ref, 1, pid_ref[[1]])
+      , next_pid_ref = shift(pid_ref, 1, head_test_pid_ref, type = "lead")
+    )]
+  test[, `:=`(
+      prev_pid_ref = shift(pid_ref, 1, tail_train_pid_ref)
+      , next_pid_ref = shift(pid_ref, 1, pid_ref[[.N]], type = "lead")
+    )]
 
   # Manually merge PMI.
 
