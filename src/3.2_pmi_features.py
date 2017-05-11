@@ -10,26 +10,46 @@
 
 import collections as co
 import feather
+import glob
 import itertools as it
 import numpy as np
 import pandas as pd
 
 
 def main():
-    train = feather.read_dataframe("../data/interim/3_end63_train.feather")
+    for path in glob.glob("../data/interim/3_*train.feather"):
+        write_pmi(path)
+
+
+def write_pmi(path):
+    print("Reading: %s" % path)
+    train = feather.read_dataframe(path)
     train.pid = train.pid.astype(str)
 
     # Identify each line in the data set with a run.
     run_id = (train.order.shift(1) != train.order).cumsum()
     train = train.groupby(run_id)
 
-    pmi_pid = compute_pmi(train, "pid")
-    feather.write_dataframe(pmi_pid, "../data/merge/pmi_pid.feather")
-    print("Wrote: ../data/merge/pmi_pid.feather")
+    # Set up the path to the out directory.
+    prefix = path.rsplit("_", 1)[0]
+    prefix = prefix.replace("interim", "merge")
+
+
+    # By pid ----------------------------------------
+    by = "pid"
+    pmi_pid = compute_pmi(train, by)
+
+    path = prefix + "_pmi_%s.feather" % by
+    feather.write_dataframe(pmi_pid, path)
+    print("Wrote: %s" % path)
     
-    pmi_group = compute_pmi(train, "group")
-    feather.write_dataframe(pmi_group, "../data/merge/pmi_group.feather")
-    print("Wrote: ../data/merge/pmi_group.feather")
+    # By group ----------------------------------------
+    by = "group"
+    pmi_group = compute_pmi(train, by)
+
+    path = prefix + "_pmi_%s.feather" % by
+    feather.write_dataframe(pmi_group, path)
+    print("Wrote: %s" % path)
 
 
 def compute_pmi(runs, group):
