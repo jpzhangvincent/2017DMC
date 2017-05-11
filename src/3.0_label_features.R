@@ -23,41 +23,26 @@ LABEL_COLS <- c("click", "basket", "order", "revenue", "order_qty")
 
 
 # This function runs first when the script is sourced/executed.
-main <- function(train_folds = 5, useCV = FALSE) {
+# Set `folds` to a vector of desired splits.
+main <- function(folds) {
   train <- data.table(read_feather(IN$train))
   
-  # use time sliced cross validation scheme
-  if(useCV){
-    n_folds <- max(train$fold)
-    for ( i in seq.int(2, n_folds) ) {
-      end_tr <- max(train[fold == i - 1, day])
-      end_vd <- max(train[fold == i, day])
-      message(sprintf(
-        "Computing features for [ 1 ... %i ] [ ... %i ].", end_tr, end_vd))
-      
-      # Separate folds into training and validation sets.
-      df <- copy(train[fold <= i, ])
-      
-      make_label_features(df, i, end = end_tr)
-      
-      rm(df); gc()
-    } 
-  }
-  
-  # use the specific train-test split
-  if(train_folds>=2){
-    end_tr <- max(train[fold == train_folds - 1, day])
-    end_vd <- max(train[fold == train_folds, day])
+  if (missing(fold))
+    folds = seq.int(2, max(train$fold))
+
+  for ( i in folds ) {
+    end_tr <- max(train[fold == i - 1, day])
+    end_vd <- max(train[fold == i, day])
     message(sprintf(
       "Computing features for [ 1 ... %i ] [ ... %i ].", end_tr, end_vd))
     
     # Separate folds into training and validation sets.
-    df <- copy(train[fold <= train_folds, ])
+    df <- copy(train[fold <= i, ])
     
-    make_label_features(df, train_folds, end = end_tr)
+    make_label_features(df, i, end = end_tr)
     
-    rm(df); gc() 
-  }
+    rm(df); gc()
+  } 
 
   message("Computing features for [1 ... 92 ] [ ... ].")
   test <- data.table(read_feather(IN$test))
