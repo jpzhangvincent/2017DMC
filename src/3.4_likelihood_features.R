@@ -1,13 +1,13 @@
+#!/usr/bin/env Rscript
 
 library(feather)
 
 
+train_set63 <- read_feather("../data/interim/3_end63_train.feather")
+pesudo_test_set63 <- read_feather("../data/interim/3_end63_test.feather")
 
-train_set63 <- read_feather("data/processed/end63_train.feather")
-pesudo_test_set63 <- read_feather("data/processed/end63_test.feather")
-
-train_set77 <- read_feather("data/processed/end77_train.feather")
-pesudo_test_set77 <- read_feather("data/processed/end77_test.feather")
+train_set77 <- read_feather("../data/interim/3_end77_train.feather")
+pesudo_test_set77 <- read_feather("../data/interim/3_end77_test.feather")
 
 # comnination of manu and group
 train_set63$manu_group = factor(paste(train_set63$manufacturer, 
@@ -151,8 +151,8 @@ likelihood_end77_test = pesudo_test_set77[,names(pesudo_test_set77) %in% c("pid"
                                                                            "manu_group_label","content_unit_pharmForm_label", 
                                                                            "day_adflag_availability_campaignIndex_label")]
 
-write_feather(likelihood_end63_train, 'data/processed/likelihood_end63_train.feather')
-write_feather(likelihood_end63_test, 'data/processed/likelihood_end63_test.feather')
+write_feather(likelihood_end63_train, '../data/merge/likelihood_end63_train.feather')
+write_feather(likelihood_end63_test, '../data/merge/likelihood_end63_test.feather')
 
-write_feather(likelihood_end77_train, 'data/processed/likelihood_end77_train.feather')
-write_feather(likelihood_end77_test, 'data/processed/likelihood_end77_test.feather')
+write_feather(likelihood_end77_train, '../data/merge/likelihood_end77_train.feather')
+write_feather(likelihood_end77_test, '../data/merge/likelihood_end77_test.feather')
