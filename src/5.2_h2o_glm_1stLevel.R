@@ -139,8 +139,8 @@ for(c in cat_vars){
 # alpha_opts = list(list(.0001), list(.00001),list(.000001))
 # lambda_opts = list(list(.0001), list(.00001),list(.000001))
 # glm_params = list(alpha = alpha_opts,lambda = lambda_opts)
-glm_params <- list( alpha = c(0, 1e-4, 1e-2, 0.2, 0.5, 0.8, 1),
-                    lambda = c(1e-4, 1e-2, 0.2, 0.4, 0.8))
+glm_params <- list( alpha = c(0, 1e-4, 1e-2, 0.1,0.15,0.2,0.25, 0.5, 0.7,0.8,0.9, 1),
+                    lambda = c(1e-4, 1e-2,1e-3, 0.1, 0.15,0.2, 0.25, 0.7,0.8,0.9,1))
 
 # Random Grid Search
 search_criteria <- list(strategy = "RandomDiscrete", 
