@@ -291,11 +291,11 @@ retrain_models <- apply(model_list, 1, function(parameterList){
   
   # and possibly useful for ensemble
   
-  xgb.dump(model_xgb, paste("models/1stLevel/xgboost",auc_score,sep='-'), with_stats = TRUE)
+  xgb.dump(model_xgb, paste("../models/1stLevel/xgboost",auc_score,sep='-'), with_stats = TRUE)
   
-  write_feather(preds_train77d, paste0("data/preds1stLevel/xgboost_train77d-",auc_score,'.feather'))
+  write_feather(preds_train77d, paste0("../data/preds1stLevel/xgboost_train77d-",auc_score,'.feather'))
   
-  write_feather(preds_test77d, paste0("data/preds1stLevel/xgboost_test77d-",auc_score,'.feather'))
+  write_feather(preds_test77d, paste0("../data/preds1stLevel/xgboost_test77d-",auc_score,'.feather'))
 })
 
 
