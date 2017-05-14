@@ -73,8 +73,8 @@ write_merge = function(path) {
   #test[is.na(pmi_group), pmi_group := 0]
 
 
-  # Write to ../data/end##
-  prefix = dirname(dirname(path))
+  # Write to ../data/processed
+  prefix = file.path(dirname(dirname(path)), "processed")
   prefix = file.path(prefix, end)
 
   setkey(train, lineID)
