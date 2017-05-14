@@ -237,8 +237,8 @@ for (i in 1:3) {
   print(rf@model_id)
   ## Get the AUC on the hold-out test set
   retrained_rf_auc <- round(h2o.auc(h2o.performance(retrained_rf, newdata = test_set.hex)),4)
-  preds_train77d <- as.data.frame(h2o.predict(retrained_rf, retrain_set.hex))
-  preds_test77d <- as.data.frame(h2o.predict(retrained_rf, test_set.hex))
+  preds_train77d <- as.data.frame(h2o.predict(retrained_rf, retrain_set.hex))[,3]
+  preds_test77d <- as.data.frame(h2o.predict(retrained_rf, test_set.hex))[,3]
   preds_train77d <- cbind(train77d_index_df, preds_train77d)
   preds_test77d <- cbind(test77d_index_df, preds_test77d)
   newnames = paste("rf",i,sep="")
