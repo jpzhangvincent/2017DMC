@@ -1,31 +1,14 @@
-#!/usr/bin/env Rscript
-
-set.seed(260)
+# NOTE: MAKE SURE TO SET A RANDOM SEED IN ANY SCRIPT THAT RUNS THIS SCRIPT.
+#
+# This script has functions to construct likelihood features.
+#
 
 library(data.table)
 library(feather)
 
-# TODO: 77/92
 
-IN = c(
-  train = "../data/interim/3_end%i_train.feather"
-  , test = "../data/interim/3_end%i_test.feather")
-
-OUT = c(
-  train = "../data/merge/likelihood_end%i_train.rds"
-  , test = "../data/merge/likelihood_end%i_test.rds")
-
-main = function(d = 63) {
-  paths = sprintf(IN, d)
-  train = data.table(read_feather(paths[1]))
-  message(sprintf("Read: %s", paths[1]))
-
-  test = data.table(read_feather(paths[2]))
-  message(sprintf("Read: %s", paths[2]))
-
+construct_likelihood = function(train, test) {
   # Combinations
-  combine = function(...) factor(paste(..., sep = "_"))
-
   train[, `:=`(
       manu_group = combine(manufacturer, group)
       , content_unit_pharmForm = combine(content, unit, pharmForm)
@@ -50,20 +33,23 @@ main = function(d = 63) {
     set_test_lhood(train, test, "order", term)
   }
 
-  keep = c("pid", paste0(lhood_list, "_likelihood"))
+  train[, `:=`(
+      manu_group = NULL
+      , content_unit_pharmForm = NULL
+      , day_adFlag_availability_campaignIndex = NULL
+    )]
 
-  train = train[, keep, with = FALSE]
-  test = test[, keep, with = FALSE]
-  
-  paths = sprintf(OUT, d)
-  saveRDS(train, paths[1])
-  message(sprintf("Wrote: %s", paths[1]))
-
-  saveRDS(test, paths[2])
-  message(sprintf("Wrote: %s", paths[2]))
+  test[, `:=`(
+      manu_group = NULL
+      , content_unit_pharmForm = NULL
+      , day_adFlag_availability_campaignIndex = NULL
+    )]
 
   invisible (NULL)
 }
+
+
+combine = function(...) factor(paste(..., sep = "_"))
 
 
 likelihood = function(x) (sum(x) - x) / (length(x) - 1)
@@ -101,6 +87,3 @@ set_test_lhood = function(tr, vd, col, by) {
 
   invisible (NULL)
 }
-
-
-lapply(c(63, 77, 92), main)

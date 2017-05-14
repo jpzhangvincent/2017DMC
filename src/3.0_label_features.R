@@ -6,8 +6,12 @@
 # values after grouping by pid.
 #
 
+set.seed(260)
+
 library(data.table)
 library(feather)
+
+source("3.4_likelihood_features.R")
 
 IN <- list(
   train = "../data/interim/2_nolabel_feat_train.feather",
@@ -234,18 +238,23 @@ make_label_features <- function(df, i, end) {
   #combin_df[, AvgRevPerPidDay := NULL]
 
 
-  # Random Effects Encoding ----------------------------------------
-  # TODO:
+  # Likelihood Encoding ----------------------------------------
+  train <- df[fold < i, ]
+  test <- df[fold == i, ]
+  rm(df); gc()
+
+  construct_likelihood(train, test)
 
   # Write To Disk ----------------------------------------
-  setkey(df, lineID)
+  setkey(train, lineID)
+  setkey(test, lineID)
 
   out <- sprintf(OUT$train, end)
-  write_feather(df[fold < i, ], out)
+  write_feather(train, out)
   message(sprintf("Wrote: %s", out))
 
   out <- sprintf(OUT$validation, end)
-  write_feather(df[fold == i, ], out)
+  write_feather(test, out)
   message(sprintf("Wrote: %s", out))
 
   invisible (NULL)
