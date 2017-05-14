@@ -216,6 +216,16 @@ test77d_index_df <- test77d[c("lineID", "deduplicated_pid", "day")]
 #Load into the h2o environment
 retrain_set.hex <- as.h2o(train77d[all_vars])
 test_set.hex <- as.h2o(test77d[all_vars])
+
+# factorize the categorical variables
+for(c in cat_vars){
+  retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
+}
+
+for(c in cat_vars){
+  test_set.hex[c] <- as.factor(test_set.hex[c])
+}
+
 rm(train77d, test77d)
 
 # Only choose the top 3 models and persist the retrained model
@@ -239,6 +249,9 @@ for (i in 1:3) {
   preds_test77d <- as.data.frame(h2o.predict(retrained_gbm, test_set.hex))
   preds_train77d <- cbind(train77d_index_df, preds_train77d)
   preds_test77d <- cbind(test77d_index_df, preds_test77d)
+  newnames = paste("gbm",i,sep="")
+  names(preds_train77d)[4] = newnames
+  names(preds_test77d)[4] = newnames
   
   # save the retrained model to regenerate the predictions for 2nd level modeling 
   # and possibly useful for ensemble

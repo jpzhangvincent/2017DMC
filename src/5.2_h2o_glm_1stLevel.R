@@ -161,7 +161,6 @@ glm_grid <- h2o.grid(algorithm = "glm",
                      search_criteria = search_criteria,
                      x = all_preds, 
                      y = "order",
-                     weights_column = "order_qty",
                      grid_id = "glm_grid",
                      training_frame = train_set.hex,
                      validation_frame = validation_set.hex)
@@ -207,6 +206,7 @@ for (i in 1:3) {
                            ## update parameters in place
                            {
                              p <- glm@parameters  # the same seed
+                             p$weights_column = NULL
                              p$model_id = NULL          ## do not overwrite the original grid model
                              p$training_frame = retrain_set.hex   ## use the full training dataset
                              p$validation_frame = NULL  ## no validation frame
@@ -216,10 +216,13 @@ for (i in 1:3) {
   print(glm@model_id)
   ## Get the AUC on the hold-out test set
   retrained_glm_auc <- round(h2o.auc(h2o.performance(retrained_glm, newdata = test_set.hex)),4)
-  preds_train77d <- as.data.frame(h2o.predict(retrained_glm, retrain_set.hex))
-  preds_test77d <- as.data.frame(h2o.predict(retrained_glm, test_set.hex))
+  preds_train77d <- as.data.frame(h2o.predict(retrained_glm, retrain_set.hex))[,3]
+  preds_test77d <- as.data.frame(h2o.predict(retrained_glm, test_set.hex))[,3]
   preds_train77d <- cbind(train77d_index_df, preds_train77d)
   preds_test77d <- cbind(test77d_index_df, preds_test77d)
+  newnames = paste("glm",i,sep="")
+  names(preds_train77d)[4] = newnames
+  names(preds_test77d)[4] = newnames
   
   # save the retrain model to regenerate the predictions for 2nd level modeling 
   # and possibly useful for ensemble
