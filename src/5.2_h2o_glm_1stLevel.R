@@ -187,6 +187,16 @@ test77d_index_df <- test77d[c("lineID", "deduplicated_pid", "day")]
 #Load into the h2o environment
 retrain_set.hex <-as.h2o(train77d[all_vars])
 test_set.hex <-as.h2o(test77d[all_vars])
+
+# factorize the categorical variables
+for(c in cat_vars){
+  retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
+}
+
+for(c in cat_vars){
+  test_set.hex[c] <- as.factor(test_set.hex[c])
+}
+
 rm(train77d, test77d)
 
 # Choose the top 3 models
