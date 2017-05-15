@@ -35,16 +35,15 @@ def write_pmi(path, by):
     prefix = prefix.replace("interim", "merge")
     prefix = prefix.replace("3_", "pmi_")
 
-    by = "pid"
     runs = train.apply(lambda x: sorted(x[by].tolist()))
     runs = runs.tolist()
 
     del train
 
-    pmi_pid = compute_pmi(runs, by)
+    pmi = compute_pmi(runs, by)
 
     path = prefix + "_%s.feather" % by
-    feather.write_dataframe(pmi_pid, path)
+    feather.write_dataframe(pmi, path)
     print("Wrote: %s" % path)
 
 
