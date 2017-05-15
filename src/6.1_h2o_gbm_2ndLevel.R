@@ -7,30 +7,28 @@
 #     train_set(1<=day<=77): file from the path 'data/processed/train_set.feather'
 #     pesudo_test_set(78<=day<=92): file from the path 'data/processed/validation_set.feather'
 #Outputs: 
-#     rf-*modelid*-*auc*: save the h2o models in the folder 'models/'
-#     rf-*modelid*-1stLevelPred.csv: the prediction on the untouched test set
+#     gbm-*modelid*-*auc*: save the h2o models in the folder 'models/'
+#     gbm-*modelid*-1stLevelPred.csv: the prediction on the untouched test set
 
 
-library(feather)
-library(h2o)
 library(data.table)
+library(feather)
 library(stringr)
+library(h2o)
 #library(h2oEnsemble)
 
 h2o.init(nthreads = -1, #Number of threads -1 means use all cores on your machine
-         max_mem_size = "15G",
-         enable_assertions = FALSE)  #max mem size is the maximum memory to allocate to H2O
-
+         max_mem_size = "20G")  #max mem size is the maximum memory to allocate to H2O
 h2o.removeAll()
 
 ####################################################################
 ### Set-up the validation scheme                                 ###
 ####################################################################
 
-train63d <- read_feather("../data/processed/end63_train.feather")
-valid63d <- read_feather("../data/processed/end63_test.feather")
+train63d <- read_feather("../data/processed/end63_train_2nd.feather")
+valid63d <- read_feather("../data/processed/end63_test_2nd.feather")
 
-# define predictors
+# define predictors from original features
 features <- fread("../data/feature_list.csv")
 #treat day_mod_ features as categorical
 features[str_detect(name,'day_mod_'),type := "categorical"]
@@ -49,13 +47,18 @@ cont_vars <- setdiff(features[type == "numeric", name], c(cat_vars, LESS_IMPORTA
 #probably want to replace these features
 HIGH_DIMENSION_VARS <- c("group", "content", "manufacturer", 
                          "category", "pharmForm")
-REPLACE_HIGH_DIMENSION_VARS <- FALSE
+REPLACE_HIGH_DIMENSION_VARS <- TRUE
 if (REPLACE_HIGH_DIMENSION_VARS == TRUE){
   cat_vars <- setdiff(cat_vars, HIGH_DIMENSION_VARS)
 }
 
-label <- c("order", "order_qty")
-all_preds <- c(cat_vars, cont_vars)
+#1st level predictions features(meta-model features)
+column_names <- names(train63d)
+model_features <- column_names[str_detect(column_names, 'preds_')]
+
+label <- c("revenue")
+# combine all features
+all_preds <- c(cat_vars, cont_vars, model_features)
 all_vars <- c(all_preds, label)
 
 train_set.hex <- as.h2o(train63d[all_vars])
@@ -75,60 +78,65 @@ for (c in cat_vars) {
 ### modeling part - Grid Search                                 ###
 ####################################################################
 
-# random forest hyperparamters
-rf_params <- list( max_depth = seq(5, 13, 1),
-                   sample_rate = seq(0.5, 1.0, 0.1),
-                    #min_rows = c(2,4,6),
-                   col_sample_rate_change_per_level = seq(0.5, 2.0, 0.2),
-                   ## search a large space of column sampling rates per tree
-                   col_sample_rate_per_tree = seq(0.5, 1, 0.1), 
-                   ## search a few minimum required relative error improvement thresholds for a split to happen
-                   min_split_improvement = c(0,1e-8,1e-6,1e-4),
-                   ## try all histogram types (QuantilesGlobal and RoundRobin are good for numeric columns with outliers)
-                   histogram_type = c("UniformAdaptive","QuantilesGlobal","RoundRobin"))
+# GBM hyperparamters
+gbm_params <- list( max_depth = seq(5, 13, 1),
+                    sample_rate = seq(0.5, 1.0, 0.1),
+                    min_rows = c(2,4,6),
+                    quantile_alpha = seq(0.2, 0.8, 0.1),
+                    col_sample_rate = seq(0.5, 1.0, 0.1),
+                    ## search a large space of column sampling rates per tree
+                    col_sample_rate_per_tree = seq(0.5, 1, 0.1), 
+                    ## search a few minimum required relative error improvement thresholds for a split to happen
+                    min_split_improvement = c(0, 1e-8, 1e-6, 1e-4),
+                    ## try all histogram types (QuantilesGlobal and RoundRobin are good for numeric columns with outliers)
+                    histogram_type = c("UniformAdaptive","QuantilesGlobal","RoundRobin"))
+
 # Random Grid Search
-
+# Ref: https://github.com/h2oai/h2o-3/blob/master/h2o-docs/src/product/tutorials/gbm/gbmTuning.Rmd
 search_criteria <- list(strategy = "RandomDiscrete", 
-                         # train no more than 10 models
-                         max_models = 8,
-                         ## random number generator seed to make sampling of parameter combinations reproducible
-                         seed = 1234,                        
-                         ## early stopping once the leaderboard of the top 5 models is 
-                         #converged to 0.1% relative difference
-                         stopping_rounds = 5,                
-                         stopping_metric = "AUC",
-                         stopping_tolerance = 1e-3)
+                        # train no more than 6 models
+                        max_models = 8,
+                        ## random number generator seed to make sampling of parameter combinations reproducible
+                        seed = 1234,                        
+                        ## early stopping once the leaderboard of the top 5 models is 
+                        #converged to 0.1% relative difference
+                        stopping_rounds = 5,                
+                        stopping_metric = "RMSE",
+                        stopping_tolerance = 1e-3)
 
-# Train and validate a grid of RFs for parameter tuning
-rf_grid <- h2o.grid(algorithm = "randomForest",
-                     hyper_params = rf_params,
+# Train and validate a grid of GBMs for parameter tuning
+gbm_grid <- h2o.grid(algorithm = "gbm",
+                     hyper_params = gbm_params,
                      search_criteria = search_criteria,
                      x = all_preds, 
-                     y = "order",
-                     grid_id = "rf_grid",
+                     y = label,
+                     distribution = "quantile",
+                     grid_id = "gbm_grid",
                      training_frame = train_set.hex,
                      validation_frame = validation_set.hex,
                      ntrees = 1000,
+                     learn_rate = 0.05,
+                     learn_rate_annealing = 0.99,
                      ## early stopping once the validation AUC doesn't improve 
                      #by at least 0.01% for 5 consecutive scoring events
-                     stopping_rounds = 5, 
-                     stopping_tolerance = 1e-4,
-                     stopping_metric = "AUC", 
-                     score_tree_interval = 10,
-                     seed = 27)
+)
 
-sorted_RF_Grid <- h2o.getGrid(grid_id = "rf_grid", 
-                               sort_by = "auc", 
+sorted_GBM_Grid <- h2o.getGrid(grid_id = "gbm_grid", 
+                               sort_by = "rmse", 
                                decreasing = TRUE)
-print(sorted_RF_Grid)
-#rf_models <- lapply(rf_grid@model_ids, function(model_id) h2o.getModel(model_id))
-  
+print(sorted_GBM_Grid)
+#gbm_models <- lapply(gbm_grid@model_ids, function(model_id) h2o.getModel(model_id))
+
+# remove the data in h2o
+h2o.rm(train_set.hex)
+h2o.rm(validation_set.hex)
+
 ####################################################################
 ### Retain the model on train77d                                 ###
 ####################################################################
 #Load train77d and test77d dataset
-train77d <- read_feather("../data/processed/end77_train.feather")
-test77d <- read_feather("../data/processed/end77_test.feather")
+train77d <- read_feather("../data/processed/end77_train_2nd.feather")
+test77d <- read_feather("../data/processed/end77_test_2nd.feather")
 
 train77d_index_df <- train77d[c("lineID")]
 test77d_index_df <- test77d[c("lineID")]
@@ -136,6 +144,7 @@ test77d_index_df <- test77d[c("lineID")]
 #Load into the h2o environment
 retrain_set.hex <- as.h2o(train77d[all_vars])
 test_set.hex <- as.h2o(test77d[all_vars])
+
 # factorize the categorical variables
 for(c in cat_vars){
   retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
@@ -144,38 +153,40 @@ for(c in cat_vars){
 for(c in cat_vars){
   test_set.hex[c] <- as.factor(test_set.hex[c])
 }
-rm(train77d, test77d)  
-  
-# Only choose the top 3 models and persist the retrained model
+
+rm(train77d, test77d)
+
+# Only choose the top 4 models and persist the retrained model
 # Note: need to refit model including the pesudo validation set
-for (i in 1:3) {
-  rf <- h2o.getModel(sorted_RF_Grid@model_ids[[i]])
-  retrained_rf <- do.call(h2o.randomForest,
+for (i in 1:4) {
+  gbm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
+  retrained_gbm <- do.call(h2o.gbm,
                            ## update parameters in place
                            {
-                             p <- rf@parameters  # the same seed
+                             p <- gbm@parameters        # the same seed
                              p$model_id = NULL          ## do not overwrite the original grid model
-                             p$training_frame = retrain_set.hex   ## use the full training dataset
+                             p$training_frame = train_set.hex   ## use the full training dataset
                              p$validation_frame = NULL  ## no validation frame
                              p
                            }
   )
-  print(rf@model_id)
+  print(gbm@model_id)
   ## Get the AUC on the hold-out test set
-  retrained_rf_auc <- round(h2o.auc(h2o.performance(retrained_rf, newdata = test_set.hex)),4)
-  preds_train77d <- as.data.frame(h2o.predict(retrained_rf, retrain_set.hex))[,3]
-  preds_test77d <- as.data.frame(h2o.predict(retrained_rf, test_set.hex))[,3]
+  retrained_gbm_rmse <- round(h2o.rmse(h2o.performance(retrained_gbm, newdata = test_set.hex)),4)
+  preds_train77d <- as.data.frame(h2o.predict(retrained_gbm, retrain_set.hex))[,3]
+  preds_test77d <- as.data.frame(h2o.predict(retrained_gbm, test_set.hex))[,3]
   preds_train77d <- cbind(train77d_index_df, preds_train77d)
   preds_test77d <- cbind(test77d_index_df, preds_test77d)
-  newnames = paste("preds_rf",i,sep="")
+  newnames = paste("preds_gbm",i,sep ="")
   names(preds_train77d)[2] = newnames
   names(preds_test77d)[2] = newnames
   
   # save the retrained model to regenerate the predictions for 2nd level modeling 
   # and possibly useful for ensemble
-  h2o.saveModel(retrained_rf, paste("../models/1stLevel/h2o_rf",retrained_rf_auc,sep = '-'), force = TRUE)
-  write_feather(preds_train77d, paste0("../data/preds1stLevel/h2o_rf_train77d-",retrained_rf_auc,'.feather'))
-  write_feather(preds_test77d, paste0("../data/preds1stLevel/h2o_rf_test77d-",retrained_rf_auc,'.feather'))
+  h2o.saveModel(retrained_gbm, paste("../models/2ndLevel/h2o_gbm",retrained_gbm_rmse,sep = '-'), force = TRUE)
+  write_feather(preds_train77d, paste0("../data/preds2ndLevel/h2o_glm_train77d-",retrained_gbm_rmse,'.feather'))
+  write_feather(preds_test77d, paste0("../data/preds2ndLevel/h2o_glm_test77d-",retrained_gbm_rmse,'.feather'))
 }
 
 h2o.shutdown(prompt = FALSE)
+

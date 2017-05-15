@@ -167,7 +167,7 @@ pred_all_train77d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = retra
 pred_all_test77d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = test_set.hex))
 pred_all_train77d <- cbind(train77d_index_df, pred_all_train77d)
 pred_all_test77d <- cbind(test77d_index_df, pred_all_test77d)
-newnames = paste("nn",i,sep="")
+newnames = paste("preds_nn",i,sep="")
 names(pred_all_train77d)[2] = newnames
 names(pred_all_test77d)[2] = newnames
 

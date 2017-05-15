@@ -195,7 +195,7 @@ retrain_models <- apply(model_list, 1, function(parameterList){
   
   auc_score = as.numeric(auc(y_val,val_pred))
   
-  newnames = paste("xgboost",i,sep="")
+  newnames = paste("preds_xgboost",i,sep="")
   i = i+1
   names(preds_train77d)[2] = newnames
   

@@ -209,7 +209,7 @@ make_label_features <- function(df, i, end) {
   oldcols = copy(colnames(df))
   df[fold < i,
       loo_mean_revenue_by_pid := loo_mean(revenue) + rnorm(.N, 0, 0.2)
-    , by = pid]
+    , by = "deduplicated_pid"]
   
   to_fix = setdiff(colnames(df), oldcols)
   fill_label_features(df, to_fix, by)
