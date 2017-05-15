@@ -15,106 +15,30 @@ h2o.removeAll()
 train63d <- read_feather("../data/processed/end63_train.feather")
 valid63d <- read_feather("../data/processed/end63_test.feather")
 # define predictors
-cat_vars <- c('adFlag',
-              'availability',
-              'manufacturer',
-              'group',
-              'content',
-              'unit',
-              'pharmForm',
-              'genericProduct',
-              'salesIndex',
-              'category',
-              'campaignIndex',
-              'group_begin_num',
-              'day_mod_7',
-              'day_mod_10',
-              'day_mod_14',
-              'day_mod_28',
-              'day_mod_30',
-              'is_lower_price',
-              'is_discount',
-              'isgreater_discount',
-              'price_gt_prev5',
-              'price_lt_next5',
-              'prev_availability',
-              'prev_adFlag',
-              'availability_trans',
-              'adFlag_trans')
+features <- fread("../data/feature_list.csv")
+#treat day_mod_ features as categorical
+features[str_detect(name,'day_mod_'),type := "categorical"]
+#should not include them in the modeling
+NOT_USE <- c("pid", "fold", "lineID", "deduplicated_pid")
+#not useful features list
+LESS_IMPORTANT_VARS <- c("category_is_na","campaignIndex_is_na",
+                         "pharmForm_is_na", "content_part1", 
+                         "content_part2", "content_part3", 
+                         "total_units", "price_discount_p25",
+                         "price_discount_p75")
 
-cont_vars <- c('day',
-               'price',
-               'rrp',
-               'rrp_per_unit',
-               'percent_of_day',
-               'competitorPrice_is_na',
-               'competitorPrice_imputed',
-               'price_per_unit',
-               'competitorPrice_per_unit',
-               'price_diff',
-               'price_discount',
-               'competitorPrice_discount',
-               'price_discount_diff',
-               'price_discount_min',
-               'price_discount_p25',
-               'price_discount_med',
-               'price_discount_p75',
-               'price_discount_max',
-               'price_discount_mad',
-               'content_d7cnt',
-               'group_d7cnt',
-               'manufacturer_d7cnt',
-               'unit_d7cnt',
-               'pharmForm_d7cnt',
-               'category_d7cnt',
-               'campaignIndex_d7cnt',
-               'salesIndex_d7cnt',
-               'inter_gcucd7_cnt',
-               'inter_gcucd10_cnt',
-               'inter_gcucd30_cnt',
-               'inter_gcuca_cnt',
-               'prev_price',
-               'prev5_price_avg',
-               'prev5_price_min',
-               'prev5_price_max',
-               'next_price',
-               'next5_price_avg',
-               'next5_price_min',
-               'next5_price_max',
-               'prev_price_pct_chg',
-               'prev5_price_diff',
-               'next_price_pct_chg',
-               'next5_price_diff',
-               'num_pid_click',
-               'prob_pid_click',
-               'num_pid_basket',
-               'prob_pid_basket',
-               'num_pid_order',
-               'prob_pid_order',
-               'order_qty_eq_1_prob',
-               'order_qty_gt_1_prob',
-               'num_cons_orders',
-               'prob_cons_orders',
-               'cnt_click_byday7',
-               'cnt_basket_byday7',
-               'cnt_order_byday7',
-               'avg_price_click_info',
-               'avg_price_diff_click_info',
-               'avg_price_disc_diff_click_info',
-               'avg_price_basket_info',
-               'avg_price_diff_basket_info',
-               'avg_price_disc_diff_basket_info',
-               'avg_price_order_info',
-               'avg_price_diff_order_info',
-               'avg_price_disc_diff_order_info',
-               'click_propensity',
-               'basket_propensity',
-               'order_propensity',
-               'avg_revenue_by_group_7',
-               'avg_revenue_by_group_10',
-               'avg_revenue_by_group_30')
+cat_vars <-  setdiff(features[type == "categorical", name], c(NOT_USE, LESS_IMPORTANT_VARS))
+cont_vars <- setdiff(features[type == "numeric", name], c(cat_vars, LESS_IMPORTANT_VARS))
 
-label <- c("order", "order_qty")
+#probably want to replace these features
+HIGH_DIMENSION_VARS <- c("group", "content", "manufacturer", 
+                         "category", "pharmForm")
+REPLACE_HIGH_DIMENSION_VARS <- TRUE
+if (REPLACE_HIGH_DIMENSION_VARS == TRUE){
+  cat_vars <- setdiff(cat_vars, HIGH_DIMENSION_VARS)
+}
+
+label <- c("order")
 all_preds <- c(cat_vars, cont_vars)
 all_vars <- c(all_preds, label)
 
