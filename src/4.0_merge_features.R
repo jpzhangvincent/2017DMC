@@ -8,6 +8,8 @@ library(data.table)
 library(feather)
 library(stringr)
 
+source("9.3_impute.R")
+
 
 main = function() {
   train_paths = list.files("../data/interim/", "3_end.+train.feather",
@@ -44,7 +46,7 @@ write_merge = function(path) {
     message(sprintf("  On (%s)", paste(cols, collapse = ", ")))
   }
 
-  # Add lagged random effects.
+  # Lagged Random Effects --------------------
   setkey(train, lineID)
   setkey(test, lineID)
 
@@ -60,16 +62,55 @@ write_merge = function(path) {
       , next_pid_ref = shift(pid_ref, 1, pid_ref[[.N]], type = "lead")
     )]
 
-  # Manually merge PMI.
+  # Merge PMI --------------------
+  pmi_path = sprintf("^pmi_%s", end)
+  pmi_path = list.files("../data/merge/", pmi_path, full.names = TRUE)[[1]]
+  pmi = data.table(read_feather(pmi_path))
 
-  #train[["pmi_group"]] = merge_pmi(train, "group")
-  #train[is.na(pmi_group), pmi_group := 0]
+  # Set up the merge column.
+  pmi_merge_key(train, fill = train$group[[1]])
+  train = merge(train, pmi, by.x = "MERGE", by.y = "group", all.x = TRUE)
+  train[, MERGE := NULL]
+  train[is.na(pmi_group), pmi_group := 0]
 
-  #test[["pmi_group"]] = merge_pmi(test, "group")
-  #test[is.na(pmi_group), pmi_group := 0]
+  pmi_merge_key(test, fill = tail(train$group, 1))
+  test = merge(test, pmi, by.x = "MERGE", by.y = "group", all.x = TRUE)
+  test[, MERGE := NULL]
+  test[is.na(pmi_group), pmi_group := 0]
 
+  # Set first PMI value to 0 since the correct pair is unknown.
+  train[1, pmi_group := 0]
 
-  # Write to ../data/processed
+  fill = head(test$pmi_group, 1)
+  train[, next_pmi_group := shift(pmi_group, 1, fill, type = "lead")]
+  test[, next_pmi_group := shift(pmi_group, 1, 0, type = "lead")]
+
+  # Impute Missing Values --------------------
+  train[, SET := "train"]
+  test[, SET := "test"]
+  df = rbind(train, test)
+  rm(train, test); gc()
+
+  to_fix = c(
+    "content_unit_pharmForm_likelihood"
+    , "manufacturer_likelihood"
+    , "manu_group_likelihood"
+    , "deduplicated_pid_likelihood"
+    , "pid_ref"
+    , "prev_pid_ref"
+    , "next_pid_ref"
+    , "pid_likelihood"
+    , "day_adFlag_availability_campaignIndex_likelihood")
+  impute_label_features(df, to_fix)
+
+  train = df[SET == "train", ]
+  test = df[SET == "test", ]
+  rm(df); gc()
+
+  train[, SET := NULL]
+  test[, SET := NULL]
+
+  # Write to ../data/processed --------------------
   prefix = file.path(dirname(dirname(path)), "processed")
   prefix = file.path(prefix, end)
 
@@ -85,18 +126,14 @@ write_merge = function(path) {
 }
 
 
-merge_pmi = function(df, g) {
-  # FIXME: This needs to work for other day ranges.
-  pmi = read_feather("../data/merge/pmi_group.feather")
+pmi_merge_key = function(df, fill) {
+  df[, MERGE := shift(group, 1, fill)]
+  df[, MERGE := ifelse(group < MERGE
+      , paste(group, MERGE, sep = "/")
+      , paste(MERGE, group, sep = "/")
+    )]
 
-  # Get the transitions in the format A/B.
-  transitions = rbind(df[[g]], shift(df[[g]], 1))
-  transitions = apply(transitions, 2,
-    function(col) paste(sort(col, na.last = TRUE), collapse = "/"))
-
-  i = match(transitions, pmi[[g]])
-
-  return (pmi[["pmi_group"]][i])
+  invisible (NULL)
 }
 
 
