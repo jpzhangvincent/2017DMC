@@ -3,6 +3,8 @@
 # H2O GLM
 library(feather)
 library(h2o)
+library(data.table)
+library(stringr)
 #library(h2oEnsemble)
 h2o.init(nthreads = -1, #Number of threads -1 means use all cores on your machine
          max_mem_size = "20G")  #max mem size is the maximum memory to allocate to H2O
@@ -63,8 +65,8 @@ for(c in cat_vars){
 # alpha_opts = list(list(.0001), list(.00001),list(.000001))
 # lambda_opts = list(list(.0001), list(.00001),list(.000001))
 # glm_params = list(alpha = alpha_opts,lambda = lambda_opts)
-glm_params <- list( alpha = c(0, 1e-4, 1e-2, 0.1,0.15,0.2,0.25, 0.5, 0.7,0.8,0.9, 1),
-                    lambda = c(1e-4, 1e-2,1e-3, 0.1, 0.15,0.2, 0.25, 0.7,0.8,0.9,1))
+glm_params <- list( alpha = c(1e-2, 0.1,0.15,0.2,0.25,0.3,0.35,0.8,0.85,0.9),
+                    lambda = c(1e-4, 1e-2,1e-3, 0.1, 0.15,0.2,0.25,0.8,0.85,0.9,0.95))
 
 # Random Grid Search
 search_criteria <- list(strategy = "RandomDiscrete", 

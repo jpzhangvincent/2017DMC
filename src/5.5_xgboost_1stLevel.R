@@ -3,6 +3,8 @@ library(xgboost)
 library(dummies)
 library(feather)
 library(pROC)
+library(data.table)
+library(stringr)
 
 ####################################################################
 ### Set-up the validation scheme                                 ###

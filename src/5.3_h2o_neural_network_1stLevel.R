@@ -1,9 +1,10 @@
 #install.packages("h2o",repos="http://cran.rstudio.org")
 #install.packages("feather",repos="htpp://cran.rstudio.org")
 #install.packages("data.table")
+library(feather)
 library(h2o)
 library(data.table)
-library(feather)
+library(stringr)
 h2o.init(nthreads = -1, max_mem_size = "30G")
 h2o.removeAll()
 

@@ -11,9 +11,10 @@
 #     gbm-*modelid*-1stLevelPred.csv: the prediction on the untouched test set
 
 
-library(data.table)
 library(feather)
 library(h2o)
+library(data.table)
+library(stringr)
 #library(h2oEnsemble)
 
 h2o.init(nthreads = -1, #Number of threads -1 means use all cores on your machine
