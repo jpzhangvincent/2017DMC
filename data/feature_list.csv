@@ -28,7 +28,6 @@ price_gt_prev5,categorical,integer
 price_lt_next5,categorical,integer
 salesIndex,categorical,character
 unit,categorical,character
-day,discrete,integer
 basket,label,logical
 click,label,logical
 order,label,logical
@@ -61,6 +60,7 @@ content_part1,numeric,numeric
 content_part2,numeric,numeric
 content_part3,numeric,numeric
 content_unit_pharmForm_likelihood,numeric,numeric
+day,numeric,integer
 day_adFlag_availability_campaignIndex_likelihood,numeric,numeric
 day_mod_10,numeric,numeric
 day_mod_14,numeric,numeric

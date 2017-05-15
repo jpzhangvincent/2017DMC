@@ -21,9 +21,13 @@ features$type[features$rclass == "numeric"] = "numeric"
 LABELS = c("basket", "click", "order", "revenue", "order_qty")
 features$type[features$name %in% LABELS] = "label"
 
-# List discrete features here.
-DISCRETE = c("day")
-features$type[features$name %in% DISCRETE] = "discrete"
+# Override numeric features here.
+NUMERIC = c("day")
+features$type[features$name %in% NUMERIC] = "numeric"
+
+# Override categorical features here.
+CATEGORICAL = c()
+features$type[features$name %in% CATEGORICAL] = "categorical"
 
 
 ord = with(features, order(type, name))
