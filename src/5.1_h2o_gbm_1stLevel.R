@@ -174,7 +174,7 @@ for (i in 1:3) {
   preds_test77d <- as.data.frame(h2o.predict(retrained_gbm, test_set.hex))[,3]
   preds_train77d <- cbind(train77d_index_df, preds_train77d)
   preds_test77d <- cbind(test77d_index_df, preds_test77d)
-  newnames = paste("gbm",i,sep="")
+  newnames = paste("preds_gbm",i,sep="")
   names(preds_train77d)[2] = newnames
   names(preds_test77d)[2] = newnames
   
