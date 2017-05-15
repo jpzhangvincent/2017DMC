@@ -188,8 +188,8 @@ h2o.rm(validation_set.hex)
 train77d <- read_feather("../data/processed/end77_train.feather")
 test77d <- read_feather("../data/processed/end77_test.feather")
 
-train77d_index_df <- train77d[c("lineID", "deduplicated_pid", "day")]
-test77d_index_df <- test77d[c("lineID", "deduplicated_pid", "day")]
+train77d_index_df <- train77d[c("lineID")]
+test77d_index_df <- test77d[c("lineID")]
 
 #Load into the h2o environment
 retrain_set.hex <-as.h2o(train77d[all_vars])
@@ -242,8 +242,8 @@ pred_all_test77d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = test_s
 pred_all_train77d <- cbind(train77d_index_df, pred_all_train77d)
 pred_all_test77d <- cbind(test77d_index_df, pred_all_test77d)
 newnames = paste("nn",i,sep="")
-names(pred_all_train77d)[4] = newnames
-names(pred_all_test77d)[4] = newnames
+names(pred_all_train77d)[2] = newnames
+names(pred_all_test77d)[2] = newnames
 
 write_feather(pred_all_train77d, "../data/preds1stLevel/dl_all_train77d.feather")
 write_feather(pred_all_test77d, "../data/preds1stLevel/dl_all_test77d.feather")
@@ -253,8 +253,8 @@ pred_cat_test77d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = test_s
 pred_cat_train77d <- cbind(train77d_index_df, pred_cat_train77d)
 pred_cat_test77d <- cbind(test77d_index_df, pred_cat_test77d)
 newnames = paste("nn",i,sep="")
-names(pred_cat_train77d)[4] = newnames
-names(pred_cat_test77d)[4] = newnames
+names(pred_cat_train77d)[2] = newnames
+names(pred_cat_test77d)[2] = newnames
 
 write_feather(pred_cat_train77d, "../data/preds1stLevel/dl_cat_train77d.feather")
 write_feather(pred_cat_test77d, "../data/preds1stLevel/dl_cat_test77d.feather")

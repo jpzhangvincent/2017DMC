@@ -218,9 +218,9 @@ train77 <- read_feather("../data/processed/end77_train.feather")
 
 valid77 <- read_feather("../data/processed/end77_test.feather")
 
-train77d_index_df <- train77[c("lineID", "deduplicated_pid", "day")]
+train77d_index_df <- train77[c("lineID")]
 
-test77d_index_df <- valid77[c("lineID", "deduplicated_pid", "day")]
+test77d_index_df <- valid77[c("lineID")]
 
 
 # factorize the categorical variables
@@ -277,9 +277,9 @@ retrain_models <- apply(model_list, 1, function(parameterList){
   
   newnames = paste("xgboost",i,sep="")
   i = i+1
-  names(preds_train77d)[4] = newnames
+  names(preds_train77d)[2] = newnames
   
-  names(preds_test77d)[4] = newnames
+  names(preds_test77d)[2] = newnames
 
   # save the retrain model to regenerate the predictions for 2nd level modeling 
   

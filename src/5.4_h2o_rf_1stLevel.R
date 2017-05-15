@@ -204,8 +204,8 @@ print(sorted_RF_Grid)
 train77d <- read_feather("../data/processed/end77_train.feather")
 test77d <- read_feather("../data/processed/end77_test.feather")
 
-train77d_index_df <- train77d[c("lineID", "deduplicated_pid", "day")]
-test77d_index_df <- test77d[c("lineID", "deduplicated_pid", "day")]
+train77d_index_df <- train77d[c("lineID")]
+test77d_index_df <- test77d[c("lineID")]
 
 #Load into the h2o environment
 retrain_set.hex <- as.h2o(train77d[all_vars])
@@ -242,8 +242,8 @@ for (i in 1:3) {
   preds_train77d <- cbind(train77d_index_df, preds_train77d)
   preds_test77d <- cbind(test77d_index_df, preds_test77d)
   newnames = paste("rf",i,sep="")
-  names(preds_train77d)[4] = newnames
-  names(preds_test77d)[4] = newnames
+  names(preds_train77d)[2] = newnames
+  names(preds_test77d)[2] = newnames
   
   # save the retrained model to regenerate the predictions for 2nd level modeling 
   # and possibly useful for ensemble
