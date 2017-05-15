@@ -51,19 +51,17 @@ construct_likelihood = function(train, test) {
 
 combine = function(...) factor(paste(..., sep = "_"))
 
-
-likelihood = function(x) (sum(x) - x) / (length(x) - 1)
-
+loo_mean = function(x) (sum(x) - x) / (length(x) - 1)
 
 set_train_lhood = function(df, col, by, noise_sd = 0.02) {
   col = as.symbol(col)
   name = paste0(by, "_likelihood")
 
-  df[, (name) := likelihood(eval(col)), by = by]
+  df[, (name) := loo_mean(eval(col)), by = by]
 
   # Impute NAs.
   is_na = which(is.na(df[[name]]))
-  set(df, is_na, name, df[, likelihood(eval(col))][is_na] )
+  set(df, is_na, name, df[, loo_mean(eval(col))][is_na] )
 
   # Multiply by noise.
   set(df, NULL, name, pmin(df[[name]] * rnorm(nrow(df),mean=1, sd=noise_sd), 1) )

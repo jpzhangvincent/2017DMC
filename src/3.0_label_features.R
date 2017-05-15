@@ -205,6 +205,16 @@ make_label_features <- function(df, i, end) {
   fill_label_features(df, to_fix, by)
   impute_label_features(df, to_fix)
 
+  # Revenue Features ----------------------------------------
+  oldcols = copy(colnames(df))
+  df[fold < i,
+      loo_mean_revenue_by_pid := loo_mean(revenue) + rnorm(.N, 0, 0.2)
+    , by = pid]
+  
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
+
   # NOTE: This feature does not have high importance ranking and is expensive
   # to generate, so I've left it out.
   # Need to be careful about overfitting problem.
@@ -212,31 +222,6 @@ make_label_features <- function(df, i, end) {
   #    (sum(revenue) - revenue) / (.N - 1) # leave-one-out
   #    + rnorm(.N, mean(revenue), 0.2)     # added noise
   #  ), by = pid]
-
-  #vd[, avg_revenue_per_pid_line := NA]
-
-  #vd[, AvgRevPerPidDay_adj :=
-  #  ifelse(is.na(avg_revenue_per_pid_line)
-  #    , mean(avg_revenue_per_pid_line, na.rm = T)
-  #    , avg_revenue_per_pid_line)
-  #tr[, mean(avg_revenue_per_pid_line),
-  #  by = .(pid, campaignIndex, salesIndex, adFlag)]
-
-  #combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj),
-  #    mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj
-  #  # Missing because new pid
-  #  ), by = .(group, unit, content, campaignIndex, salesIndex, adFlag)]
-
-  #combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj),
-  #    mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj
-  #  ), by = .(group, unit, content)]
-
-  #combin_df[, AvgRevPerPidDay_adj := ifelse(is.na(AvgRevPerPidDay_adj),
-  #    mean(AvgRevPerPidDay, na.rm=T), AvgRevPerPidDay_adj
-  #  ), by = .(group)]
-
-  #combin_df[, AvgRevPerPidDay := NULL]
-
 
   # Likelihood Encoding ----------------------------------------
   train <- df[fold < i, ]

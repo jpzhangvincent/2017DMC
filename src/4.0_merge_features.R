@@ -8,10 +8,6 @@ library(data.table)
 library(feather)
 library(stringr)
 
-IN = list(
-  train  = "../data/interim/3_end63_train.feather"
-  , test = "../data/interim/3_end63_test.feather")
-
 
 main = function() {
   train_paths = list.files("../data/interim/", "3_end.+train.feather",
