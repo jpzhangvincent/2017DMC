@@ -13,10 +13,18 @@ features = vapply(tr, class, "")
 features = data.frame(name = names(features), rclass = features)
 rownames(features) = NULL
 
-features$type = "discrete"
-features$type[features$rclass == "numeric"] = "discrete"
+# Default to all features categorical, unless they are numeric.
+features$type = "categorical"
+features$type[features$rclass == "numeric"] = "numeric"
+
+# List labels here.
 LABELS = c("basket", "click", "order", "revenue", "order_qty")
 features$type[features$name %in% LABELS] = "label"
+
+# List discrete features here.
+DISCRETE = c("day")
+features$type[features$name %in% DISCRETE] = "discrete"
+
 
 ord = with(features, order(type, name))
 features = features[ord, c("name", "type", "rclass")]
