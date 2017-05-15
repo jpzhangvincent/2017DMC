@@ -226,12 +226,15 @@ df[, `:=`(
 # Previous Product State ----------------------------------------
 df[, `:=`(
     prev_availability = shift(availability, 1, "?")
+    , next_availability = shift(availability, 1, "?", type = "lead")
     , prev_adFlag = shift(adFlag, 1, 0.5)
   ), by = pid]
 
 # Interactions / Transitions
 df[, `:=`(
-    availability_trans = paste(prev_availability, availability, sep = "-")
+    availability_trans_prev = paste(prev_availability, availability, sep = "-")
+    , availability_trans_next
+      = paste(availability, next_availability, sep = "-")
     , adFlag_trans = paste(prev_adFlag, adFlag, sep ="-")
   )]
 
