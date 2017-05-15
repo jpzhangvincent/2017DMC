@@ -82,6 +82,7 @@ for (c in cat_vars) {
 gbm_params <- list( max_depth = seq(5, 13, 1),
                     sample_rate = seq(0.5, 1.0, 0.1),
                     min_rows = c(2,4,6),
+                    quantile_alpha = seq(0.2, 0.8, 0.1),
                     col_sample_rate = seq(0.5, 1.0, 0.1),
                     ## search a large space of column sampling rates per tree
                     col_sample_rate_per_tree = seq(0.5, 1, 0.1), 
@@ -94,7 +95,7 @@ gbm_params <- list( max_depth = seq(5, 13, 1),
 # Ref: https://github.com/h2oai/h2o-3/blob/master/h2o-docs/src/product/tutorials/gbm/gbmTuning.Rmd
 search_criteria <- list(strategy = "RandomDiscrete", 
                         # train no more than 6 models
-                        max_models = 6,
+                        max_models = 8,
                         ## random number generator seed to make sampling of parameter combinations reproducible
                         seed = 1234,                        
                         ## early stopping once the leaderboard of the top 5 models is 
@@ -109,6 +110,7 @@ gbm_grid <- h2o.grid(algorithm = "gbm",
                      search_criteria = search_criteria,
                      x = all_preds, 
                      y = label,
+                     distribution = "quantile",
                      grid_id = "gbm_grid",
                      training_frame = train_set.hex,
                      validation_frame = validation_set.hex,
@@ -154,9 +156,9 @@ for(c in cat_vars){
 
 rm(train77d, test77d)
 
-# Only choose the top 3 models and persist the retrained model
+# Only choose the top 4 models and persist the retrained model
 # Note: need to refit model including the pesudo validation set
-for (i in 1:3) {
+for (i in 1:4) {
   gbm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
   retrained_gbm <- do.call(h2o.gbm,
                            ## update parameters in place
