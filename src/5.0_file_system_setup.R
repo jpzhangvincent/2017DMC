@@ -10,4 +10,4 @@ system("mkdir DMC/models")
 system("mkdir DMC/models/1stLevel")
 
 ## copy your code.r to the DMC/src folder then run the following
-## R CMD BATCH code.r &
+## R-3.3.3 CMD BATCH code.r &

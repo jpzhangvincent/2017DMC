@@ -5,7 +5,7 @@ library(feather)
 library(h2o)
 library(data.table)
 library(stringr)
-h2o.init(nthreads = -1, max_mem_size = "30G")
+h2o.init(nthreads = 36, max_mem_size = "30G")
 h2o.removeAll()
 
 ####################################################################
