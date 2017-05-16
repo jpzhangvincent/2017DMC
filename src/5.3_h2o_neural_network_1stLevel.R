@@ -17,7 +17,7 @@ valid63d <- read_feather("../data/processed/end63_test.feather")
 
 
 # define predictors
-features <- fread("../data/feature_list.csv")
+features <- fread("../data/processed/feature_list.csv")
 #treat day_mod_ features as categorical
 features[str_detect(name,'day_mod_'),type := "categorical"]
 #should not include them in the modeling
