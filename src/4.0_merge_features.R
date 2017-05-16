@@ -68,17 +68,21 @@ write_merge = function(path) {
   pmi = data.table(read_feather(pmi_path))
 
   # Set up the merge column.
+  setkey(train, lineID)
   pmi_merge_key(train, fill = train$group[[1]])
   train = merge(train, pmi, by.x = "MERGE", by.y = "group", all.x = TRUE)
   train[, MERGE := NULL]
   train[is.na(pmi_group), pmi_group := 0]
 
+  setkey(test, lineID)
   pmi_merge_key(test, fill = tail(train$group, 1))
   test = merge(test, pmi, by.x = "MERGE", by.y = "group", all.x = TRUE)
   test[, MERGE := NULL]
   test[is.na(pmi_group), pmi_group := 0]
 
   # Set first PMI value to 0 since the correct pair is unknown.
+  setkey(train, lineID)
+  setkey(test, lineID)
   train[1, pmi_group := 0]
 
   fill = head(test$pmi_group, 1)

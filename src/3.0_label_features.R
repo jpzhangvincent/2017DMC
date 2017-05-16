@@ -248,6 +248,7 @@ make_label_features <- function(df, i, end) {
 
 
 compute_prob = function(df, feat, i) {
+  setkey(df, lineID)
   name = sprintf("prev_%s_order_prop", feat)
   fill = df[[feat]][[1]]
   feat = as.symbol(feat)
