@@ -160,8 +160,8 @@ sprintf("Model performance for the model train on categorical features in train7
 h2o.auc(h2o.performance(model = retrained_dl_cat, newdata = test_set.hex))
 
 # save the models
-h2o.saveModel(object = retrained_dl_all, path = "../models/1stLevel/h2o_dl_all", force=TRUE)
-h2o.saveModel(object = retrained_dl_cat, path = "../models/1stLevel/h2o_dl_cat", force=TRUE)
+h2o.saveModel(object = retrained_dl_all, path = "../models/1stLevel/end77_dl_all", force=TRUE)
+h2o.saveModel(object = retrained_dl_cat, path = "../models/1stLevel/end77_dl_cat", force=TRUE)
 
 # save the predictions for the second level modeling
 pred_all_train77d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = retrain_set.hex))
@@ -172,8 +172,8 @@ newnames = paste("preds_nn",i,sep="")
 names(pred_all_train77d)[2] = newnames
 names(pred_all_test77d)[2] = newnames
 
-write_feather(pred_all_train77d, "../data/preds1stLevel/dl_all_train77d.feather")
-write_feather(pred_all_test77d, "../data/preds1stLevel/dl_all_test77d.feather")
+write_feather(pred_all_train77d, "../data/preds1stLevel/end77d_train_nn")
+write_feather(pred_all_test77d, "../data/preds1stLevel/end77d_test_nn")
 
 pred_cat_train77d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = retrain_set.hex))[,3]
 pred_cat_test77d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = test_set.hex))[,3]
@@ -183,8 +183,92 @@ newnames = paste("nn",i,sep="")
 names(pred_cat_train77d)[2] = newnames
 names(pred_cat_test77d)[2] = newnames
 
-write_feather(pred_cat_train77d, "../data/preds1stLevel/dl_cat_train77d.feather")
-write_feather(pred_cat_test77d, "../data/preds1stLevel/dl_cat_test77d.feather")
+write_feather(pred_cat_train77d, "../data/preds1stLevel/end77d_train_nncat")
+write_feather(pred_cat_test77d, "../data/preds1stLevel/end77d_train_nncat")
+
+# remove the data in h2o
+h2o.rm(retrain_set.hex)
+h2o.rm(test_set.hex)
+
+
+####################################################################
+### Retain the model on train92d                                 ###
+####################################################################
+#Load train92d and test92d dataset
+train92d <- read_feather("../data/processed/end92_train.feather")
+test92d <- read_feather("../data/processed/end92_test.feather")
+
+train92d_index_df <- train92d[c("lineID")]
+test92d_index_df <- test92d[c("lineID")]
+
+#Load into the h2o environment
+retrain_set.hex <-as.h2o(train92d[all_vars])
+test_set.hex <-as.h2o(test92d[all_vars])
+# factorize the categorical variables
+for(c in cat_vars){
+    retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
+}
+
+for(c in cat_vars){
+    test_set.hex[c] <- as.factor(test_set.hex[c])
+}
+
+rm(train92d, test92d)
+
+#retain on the train92d dataset
+retrained_dl_all <- do.call(h2o.deeplearning,
+## update parameters in place
+{
+    p <- dl_all@parameters  # the same seed
+    p$model_id = NULL          ## do not overwrite the original grid model
+    p$training_frame = retrain_set.hex   ## use the full training dataset
+    p$validation_frame = NULL  ## no validation frame
+    p
+})
+
+sprintf("Model performance for the model train on all the features in train92d dataset")
+h2o.auc(h2o.performance(model = retrained_dl_all, newdata = test_set.hex))
+
+retrained_dl_cat <- do.call(h2o.deeplearning,
+## update parameters in place
+{
+    p <- dl_cat@parameters  # the same seed
+    p$model_id = NULL          ## do not overwrite the original grid model
+    p$training_frame = retrain_set.hex   ## use the full training dataset
+    p$validation_frame = NULL  ## no validation frame
+    p
+})
+
+sprintf("Model performance for the model train on categorical features in train92d dataset")
+h2o.auc(h2o.performance(model = retrained_dl_cat, newdata = test_set.hex))
+
+# save the models
+h2o.saveModel(object = retrained_dl_all, path = "../models/1stLevel/end92_dl_all", force=TRUE)
+h2o.saveModel(object = retrained_dl_cat, path = "../models/1stLevel/end92_dl_cat", force=TRUE)
+
+# save the predictions for the second level modeling
+pred_all_train92d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = retrain_set.hex))
+pred_all_test92d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = test_set.hex))
+pred_all_train92d <- cbind(train92d_index_df, pred_all_train92d)
+pred_all_test92d <- cbind(test92d_index_df, pred_all_test92d)
+newnames = paste("preds_nn",i,sep="")
+names(pred_all_train92d)[2] = newnames
+names(pred_all_test92d)[2] = newnames
+
+write_feather(pred_all_train92d, "../data/preds1stLevel/end92d_train_nn")
+write_feather(pred_all_test92d, "../data/preds1stLevel/end92d_test_nn")
+
+pred_cat_train92d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = retrain_set.hex))[,3]
+pred_cat_test92d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = test_set.hex))[,3]
+pred_cat_train92d <- cbind(train92d_index_df, pred_cat_train92d)
+pred_cat_test92d <- cbind(test92d_index_df, pred_cat_test92d)
+newnames = paste("nn",i,sep="")
+names(pred_cat_train92d)[2] = newnames
+names(pred_cat_test92d)[2] = newnames
+
+write_feather(pred_cat_train92d, "../data/preds1stLevel/end92d_train_nncat")
+write_feather(pred_cat_test92d, "../data/preds1stLevel/end92d_train_nncat")
+
 
 h2o.shutdown(prompt = FALSE)
 
@@ -193,10 +277,10 @@ h2o.shutdown(prompt = FALSE)
 # activation_opt <- c("Rectifier", "Maxout", "Tanh")
 # l1_opt <- c(0, 0.00001, 0.0001, 0.001, 0.01)
 # l2_opt <- c(0, 0.00001, 0.0001, 0.001, 0.01)
-# hyper_params <- list(activation = activation_opt, 
-#                      l1 = l1_opt, 
+# hyper_params <- list(activation = activation_opt,
+#                      l1 = l1_opt,
 #                      l2 = l2_opt)
-# search_criteria <- list(strategy = "RandomDiscrete", 
+# search_criteria <- list(strategy = "RandomDiscrete",
 #                         max_runtime_secs = 600)
 # 
 # dl_grid <- h2o.grid("deeplearning", 
