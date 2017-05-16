@@ -5,37 +5,65 @@ library(feather)
 library(pROC)
 library(data.table)
 library(stringr)
+#setwd('D:/Dropbox/UCDavis/2017spring/DMC_2017_task/github/2017DMC/src')
+#setwd('/Users/RayLJazz/Dropbox/UCDavis/2017spring/DMC_2017_task/github/2017DMC/src')
+setwd("C:/Users/Olivia/Desktop")
 
 ####################################################################
 ### Set-up the validation scheme                                 ###
 ####################################################################
 
-train <- read_feather("../data/processed/end63_train.feather")
-valid <- read_feather("../data/processed/end63_test.feather")
+train <- read_feather("data/processed/end63_train.feather")
 
-# define predictors
-features <- fread("../data/feature_list.csv")
-#treat day_mod_ features as categorical
-features[str_detect(name,'day_mod_'),type := "categorical"]
+valid <- read_feather("data/processed/end63_test.feather")
+
+features <- fread("data/processed/feature_list.csv")
+
+
 #should not include them in the modeling
+
 NOT_USE <- c("pid", "fold", "lineID", "deduplicated_pid")
+
 #not useful features list
+
 LESS_IMPORTANT_VARS <- c("category_is_na","campaignIndex_is_na",
+                         
                          "pharmForm_is_na", "content_part1", 
+                         
                          "content_part2", "content_part3", 
+                         
                          "total_units", "price_discount_p25",
+                         
                          "price_discount_p75")
 
+
+
 cat_vars <-  setdiff(features[type == "categorical", name], c(NOT_USE, LESS_IMPORTANT_VARS))
+
 cont_vars <- setdiff(features[type == "numeric", name], c(cat_vars, LESS_IMPORTANT_VARS))
 
+
 #probably want to replace these features
+
 HIGH_DIMENSION_VARS <- c("group", "content", "manufacturer", 
+                         
                          "category", "pharmForm")
+
 REPLACE_HIGH_DIMENSION_VARS <- TRUE
-if (REPLACE_HIGH_DIMENSION_VARS == TRUE) {
+
+if (REPLACE_HIGH_DIMENSION_VARS == TRUE){
+  
   cat_vars <- setdiff(cat_vars, HIGH_DIMENSION_VARS)
+  
 }
+
+
+
+label <- c("order")
+
+all_preds <- c(cat_vars, cont_vars)
+
+all_vars <- c(all_preds, label)
 
 
 ######create one-hot encoding
@@ -52,10 +80,10 @@ train_OH = do.call(cbind,lapply(cat_vars, function(c) {Create_One_Hot_Encoding(t
 
 valid_OH = do.call(cbind,lapply(cat_vars, function(c) {Create_One_Hot_Encoding(valid, c)}))
 
+
 train$order = as.factor(ifelse(train$order,1,0))
 valid$order = as.factor(ifelse(valid$order,1,0))
 
-label <- c("order", "order_qty")
 cat_OH_vars = colnames(train_OH)
 predictors <- c(cat_OH_vars,cont_vars)
 
@@ -77,9 +105,10 @@ rm(train_OH,valid_OH)
 xgb_grid_1 = expand.grid(
 objective = 'binary:logistic',
 nrounds = 1000,
-max_depth =c(2, 4, 6, 8, 10),
-subsample =c(0.2,0.4,0.6,0.8,1), 
-colsample_bytree =c(0.2,0.4,0.6,0.8,1)
+eta = 0.01,#c(0.01, 0.001, 0.0001),
+max_depth =c(2,3), #c(2, 4, 6, 8, 10),
+subsample =0.2, #c(0.2,0.4,0.6,0.8,1), 
+colsample_bytree =0.2 #c(0.2,0.4,0.6,0.8,1)
 #gamma = c(0.2,0.4,0.6,0.8,1)
 )
 
@@ -91,7 +120,7 @@ y_val =  as.numeric(levels(valid$order))[valid$order]
 
 dtrain <- xgb.DMatrix(as.matrix(X_train), label = y_train)
 dval <- xgb.DMatrix(as.matrix(X_val), label = y_val)
-watchlist <- list(eval = dval, train = dtrain)
+watchlist <- list(train = dtrain ,eval = dval)
 
 AUC_Hyperparameters <- apply(xgb_grid_1, 1, function(parameterList){
 
@@ -124,6 +153,11 @@ AUC_list = do.call(rbind, AUC_Hyperparameters)
 
 model_list = head(AUC_list[order(AUC_list$auc_score,decreasing = TRUE),],3)
 
+# remove the data in h2o
+rm(train)
+
+rm(valid)
+
 
 
 ####################################################################
@@ -134,9 +168,9 @@ model_list = head(AUC_list[order(AUC_list$auc_score,decreasing = TRUE),],3)
 
 #Load train77d and test77d dataset
 
-train77 <- read_feather("../data/processed/end77_train.feather")
+train77 <- read_feather("data/processed/end77_train.feather")
 
-valid77 <- read_feather("../data/processed/end77_test.feather")
+valid77 <- read_feather("data/processed/end77_test.feather")
 
 train77d_index_df <- train77[c("lineID")]
 
@@ -147,10 +181,6 @@ test77d_index_df <- valid77[c("lineID")]
 train77_OH = do.call(cbind,lapply(cat_vars, function(c) {Create_One_Hot_Encoding(train77, c)}))
 
 valid77_OH = do.call(cbind,lapply(cat_vars, function(c) {Create_One_Hot_Encoding(valid77, c)}))
-
-train77$order = as.factor(ifelse(train77$order,1,0))
-valid77$order = as.factor(ifelse(valid77$order,1,0))
-
 
 
 train77 = cbind(train77, train77_OH)
@@ -195,21 +225,21 @@ retrain_models <- apply(model_list, 1, function(parameterList){
   
   auc_score = as.numeric(auc(y_val,val_pred))
   
-  newnames = paste("preds_xgboost",i,sep="")
+  newnames = paste("xgboost",i,sep="")
   i = i+1
-  names(preds_train77d)[2] = newnames
+  names(preds_train77d)[4] = newnames
   
-  names(preds_test77d)[2] = newnames
+  names(preds_test77d)[4] = newnames
 
   # save the retrain model to regenerate the predictions for 2nd level modeling 
   
   # and possibly useful for ensemble
   
-  xgb.dump(model_xgb, paste("../models/1stLevel/xgboost",auc_score,sep='-'), with_stats = TRUE)
+  xgb.dump(model_xgb, paste("models/1stLevel/xgboost",auc_score,sep='-'), with_stats = TRUE)
   
-  write_feather(preds_train77d, paste0("../data/preds1stLevel/xgboost_train77d-",auc_score,'.feather'))
+  write_feather(preds_train77d, paste0("data/preds1stLevel/xgboost_train77d-",auc_score,'.feather'))
   
-  write_feather(preds_test77d, paste0("../data/preds1stLevel/xgboost_test77d-",auc_score,'.feather'))
+  write_feather(preds_test77d, paste0("data/preds1stLevel/xgboost_test77d-",auc_score,'.feather'))
 })
 
 
