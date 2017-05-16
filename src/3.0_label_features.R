@@ -207,28 +207,28 @@ make_label_features <- function(df, i, end) {
   impute_label_features(df, to_fix)
 
   # Revenue Features ----------------------------------------
+  by = "deduplicated_pid"
+
   oldcols = copy(colnames(df))
   df[fold < i,
       loo_mean_revenue_by_pid := loo_mean(revenue) + rnorm(.N, 0, 0.2)
-    , by = "deduplicated_pid"]
+    , by = by]
   
   to_fix = setdiff(colnames(df), oldcols)
   fill_label_features(df, to_fix, by)
   impute_label_features(df, to_fix)
 
-  # NOTE: This feature does not have high importance ranking and is expensive
-  # to generate, so I've left it out.
-  # Need to be careful about overfitting problem.
-  #tr[, avg_revenue_per_pid_line := (
-  #    (sum(revenue) - revenue) / (.N - 1) # leave-one-out
-  #    + rnorm(.N, mean(revenue), 0.2)     # added noise
-  #  ), by = pid]
+  # Probabilities ----------------------------------------
+  compute_prob(df, "group", i)
+  compute_prob(df, "category", i)
+  compute_prob(df, "deduplicated_pid", i)
 
   # Likelihood Encoding ----------------------------------------
   train <- df[fold < i, ]
   test <- df[fold == i, ]
   rm(df); gc()
 
+  # These get imputed in script #4, even though that's silly.
   construct_likelihood(train, test)
 
   # Write To Disk ----------------------------------------
@@ -247,6 +247,34 @@ make_label_features <- function(df, i, end) {
 }
 
 
+compute_prob = function(df, feat, i) {
+  name = sprintf("prev_%s_order_prop", feat)
+  fill = df[[feat]][[1]]
+  feat = as.symbol(feat)
+
+  # Set up paired labels.
+  df[, MERGE := shift(eval(feat), 1, fill)]
+  df[, MERGE := ifelse(eval(feat) < MERGE
+      , paste(eval(feat), MERGE, sep = "/")
+      , paste(MERGE, eval(feat), sep = "/")
+    )]
+
+  # Compute probabilities.
+  by = "MERGE"
+
+  oldcols = copy(colnames(df))
+  df[fold < i, (name) := mean(order), by = by]
+
+  to_fix = setdiff(colnames(df), oldcols)
+  fill_label_features(df, to_fix, by)
+  impute_label_features(df, to_fix)
+
+  df[, MERGE := NULL]
+
+  invisible (NULL)
+}
+
+
 # Fill label features using first in group.
 fill_label_features <- function(df, to_fix, by) {
   df[, (to_fix) := lapply(.SD, function(x) na.omit(x)[1]),
@@ -257,3 +285,4 @@ fill_label_features <- function(df, to_fix, by) {
 
 
 main()
+

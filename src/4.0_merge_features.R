@@ -62,7 +62,7 @@ write_merge = function(path) {
       , next_pid_ref = shift(pid_ref, 1, pid_ref[[.N]], type = "lead")
     )]
 
-  # Merge PMI --------------------
+  # Merge PMI ----------------------------------------
   pmi_path = sprintf("^pmi_%s", end)
   pmi_path = list.files("../data/merge/", pmi_path, full.names = TRUE)[[1]]
   pmi = data.table(read_feather(pmi_path))
@@ -85,7 +85,11 @@ write_merge = function(path) {
   train[, next_pmi_group := shift(pmi_group, 1, fill, type = "lead")]
   test[, next_pmi_group := shift(pmi_group, 1, 0, type = "lead")]
 
-  # Impute Missing Values --------------------
+  # PMI Interaction ----------------------------------------
+  train[, pmi_interaction := pmi_group + log1p(prev_group_order_prop)]
+  test[, pmi_interaction := pmi_group + log1p(prev_group_order_prop)]
+
+  # Impute Missing Values ----------------------------------------
   train[, SET := "train"]
   test[, SET := "test"]
   df = rbind(train, test)
