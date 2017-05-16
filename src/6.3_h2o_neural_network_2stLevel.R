@@ -5,15 +5,33 @@ library(feather)
 library(h2o)
 library(data.table)
 library(stringr)
-h2o.init(nthreads = -1, max_mem_size = "30G")
+h2o.init(nthreads = 36, max_mem_size = "30G")
 h2o.removeAll()
 
 ####################################################################
 ### Set-up the validation scheme                                 ###
 ####################################################################
 
-train63d <- read_feather("../data/processed/end63_train.feather")
-valid63d <- read_feather("../data/processed/end63_test.feather")
+train63d <- read_feather("../data/processed/end63_train_2nd.feather")
+valid63d <- read_feather("../data/processed/end63_test_2nd.feather")
+
+
+# define predictors from original features
+features <- fread("../data/feature_list.csv")
+#treat day_mod_ features as categorical
+features[str_detect(name,'day_mod_'),type := "categorical"]
+#should not include them in the modeling
+NOT_USE <- c("pid", "fold", "lineID", "deduplicated_pid")
+#not useful features list
+LESS_IMPORTANT_VARS <- c("category_is_na","campaignIndex_is_na",
+"pharmForm_is_na", "content_part1",
+"content_part2", "content_part3",
+"total_units", "price_discount_p25",
+"price_discount_p75")
+
+
+
+
 
 
 # define predictors
