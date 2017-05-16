@@ -6,7 +6,7 @@ library(h2o)
 library(data.table)
 library(stringr)
 #library(h2oEnsemble)
-h2o.init(nthreads = -1, #Number of threads -1 means use all cores on your machine
+h2o.init(nthreads = 36, #Number of threads -1 means use all cores on your machine
          max_mem_size = "20G")  #max mem size is the maximum memory to allocate to H2O
 h2o.removeAll()
 
@@ -16,8 +16,11 @@ h2o.removeAll()
 
 train63d <- read_feather("../data/processed/end63_train.feather")
 valid63d <- read_feather("../data/processed/end63_test.feather")
+
+train63d_index_df <- train63d[c("lineID")]
+valid63d_index_df <- valid63d[c("lineID")]
 # define predictors
-features <- fread("../data/feature_list.csv")
+features <- fread("../data/processed/feature_list.csv")
 #treat day_mod_ features as categorical
 features[str_detect(name,'day_mod_'),type := "categorical"]
 #should not include them in the modeling
@@ -95,12 +98,29 @@ sorted_GLM_Grid <- h2o.getGrid(grid_id = "glm_grid",
                                sort_by = "auc", 
                                decreasing = TRUE)
 print(sorted_GLM_Grid)
+
+#save the top 3 models and generate the prediction features on 1-63d and 64-77d
+for (i in 1:3){
+  glm <- h2o.getModel(sorted_GLM_Grid@model_ids[[i]])
+  h2o.saveModel(glm, paste("../models/1stLevel/h2o_glm",i), force=TRUE)
+  preds_train63d <- as.data.frame(h2o.predict(glm, train_set.hex))[,3]
+  preds_test63d <- as.data.frame(h2o.predict(glm, validation_set.hex))[,3]
+  preds_train63d <- cbind(train63d_index_df, preds_train63d)
+  preds_valid63d <- cbind(valid63d_index_df, preds_test63d)
+  newnames = paste("preds_glm",i,sep="")
+  names(preds_train63d)[2] = newnames
+  names(preds_valid63d)[2] = newnames
+  
+  write_feather(preds_train63d, paste0("../data/preds1stLevel/end63d_train_glm",i,'.feather'))
+  write_feather(preds_valid63d, paste0("../data/preds1stLevel/end63d_test_glm",i,'.feather'))
+}
+
 # remove the data in h2o
 h2o.rm(train_set.hex)
 h2o.rm(validation_set.hex)
 
 ####################################################################
-### Retain the model on train77d                                 ###
+### Retain the model on train77d  - ensemble learning            ###
 ####################################################################
 #Load train77d and test77d dataset
 train77d <- read_feather("../data/processed/end77_train.feather")
@@ -122,7 +142,7 @@ for(c in cat_vars){
   test_set.hex[c] <- as.factor(test_set.hex[c])
 }
 
-rm(train77d, test77d)
+#rm(train77d, test77d)
 
 # Choose the top 3 models
 # Note: need to refit model including the pesudo validation set
@@ -152,9 +172,67 @@ for (i in 1:3) {
   
   # save the retrain model to regenerate the predictions for 2nd level modeling 
   # and possibly useful for ensemble
-  h2o.saveModel(retrained_glm, paste("../models/1stLevel/h2o_glm",retrained_glm_auc,sep='-'), force=TRUE)
-  write_feather(preds_train77d, paste0("../data/preds1stLevel/h2o_glm_train77d-",retrained_glm_auc,'.feather'))
-  write_feather(preds_test77d, paste0("../data/preds1stLevel/h2o_glm_test77d-",retrained_glm_auc,'.feather'))
+  #h2o.saveModel(retrained_glm, paste("../models/1stLevel/h2o_glm",retrained_glm_auc,sep='-'), force=TRUE)
+  write_feather(preds_train77d, paste0("../data/preds1stLevel/end77d_train_glm",i,'.feather'))
+  write_feather(preds_valid77d, paste0("../data/preds1stLevel/end77d_test_glm",i,'.feather'))
 }
+
+####################################################################
+### Retain the model on train92d                                 ###
+####################################################################
+#Load train92d and test92d dataset
+train92d <- read_feather("../data/processed/end92d_train.feather")
+test92d <- read_feather("../data/processed/end92d_test.feather")
+
+train92d_index_df <- train92d[c("lineID")]
+test92d_index_df <- test92d[c("lineID")]
+
+#Load into the h2o environment
+retrain_set.hex <- as.h2o(train92d[all_vars])
+test_set.hex <- as.h2o(test92d[all_vars])
+
+# factorize the categorical variables
+for(c in cat_vars){
+  retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
+}
+
+for(c in cat_vars){
+  test_set.hex[c] <- as.factor(test_set.hex[c])
+}
+
+
+# Only choose the top 3 models and persist the retrained model
+# Note: need to refit model including the pesudo validation set
+for (i in 1:3) {
+  gbm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
+  retrained_gbm <- do.call(h2o.gbm,
+                           ## update parameters in place
+                           {
+                             p <- gbm@parameters        # the same seed
+                             p$model_id = NULL          ## do not overwrite the original grid model
+                             p$training_frame = retrain_set.hex   ## use the full training dataset
+                             p$validation_frame = NULL  ## no validation frame
+                             p
+                           }
+  )
+  print(gbm@model_id)
+  ## Get the AUC on the hold-out test set
+  retrained_gbm_auc <- round(h2o.auc(h2o.performance(retrained_gbm, newdata = test_set.hex)),4)
+  print(paste0("The AUC on 77-92 days: ", retrained_gbm_auc))
+  preds_train92d <- as.data.frame(h2o.predict(retrained_gbm, retrain_set.hex))[,3]
+  preds_test92d <- as.data.frame(h2o.predict(retrained_gbm, test_set.hex))[,3]
+  preds_train92d <- cbind(train92d_index_df, preds_train92d)
+  preds_test92d <- cbind(test92d_index_df, preds_test92d)
+  newnames = paste("preds_glm",i,sep="")
+  names(preds_train92d)[2] = newnames
+  names(preds_test92d)[2] = newnames
+  
+  # save the retrained model to regenerate the predictions for 2nd level modeling 
+  # and possibly useful for ensemble
+  #h2o.saveModel(retrained_gbm, paste("../models/1stLevel/end92d_h2o_gbm",retrained_gbm_auc,sep = '-'), force = TRUE)
+  write_feather(preds_train92d, paste0("../data/preds1stLevel/end92d_train_glm",i,'.feather'))
+  write_feather(preds_test92d, paste0("../data/preds1stLevel/end92d_test_glm",i,'.feather'))
+}
+
 h2o.shutdown(prompt = FALSE)
 
