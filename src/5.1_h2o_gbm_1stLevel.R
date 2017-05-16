@@ -17,8 +17,8 @@ library(data.table)
 library(stringr)
 #library(h2oEnsemble)
 
-h2o.init(nthreads = -1, #Number of threads -1 means use all cores on your machine
-         max_mem_size = "20G")  #max mem size is the maximum memory to allocate to H2O
+h2o.init(nthreads = 40, #Number of threads -1 means use all cores on your machine
+         max_mem_size = "25G")  #max mem size is the maximum memory to allocate to H2O
 h2o.removeAll()
 
 ####################################################################
@@ -31,7 +31,7 @@ valid63d <- read_feather("../data/processed/end63_test.feather")
 train63d_index_df <- train63d[c("lineID")]
 valid63d_index_df <- valid63d[c("lineID")]
 # define predictors
-features <- fread("../data/feature_list.csv")
+features <- fread("../data/processed/feature_list.csv")
 #treat day_mod_ features as categorical
 features[str_detect(name,'day_mod_'),type := "categorical"]
 #should not include them in the modeling
