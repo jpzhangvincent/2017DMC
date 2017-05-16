@@ -26,7 +26,8 @@ NUMERIC = c("day")
 features$type[features$name %in% NUMERIC] = "numeric"
 
 # Override categorical features here.
-CATEGORICAL = c("day_mod_7", "day_mod_10", "day_mod_14", "day_mod_28", "day_mod_30", )
+CATEGORICAL = c("day_mod_7", "day_mod_10", "day_mod_14", "day_mod_28",
+  "day_mod_30")
 features$type[features$name %in% CATEGORICAL] = "categorical"
 
 
