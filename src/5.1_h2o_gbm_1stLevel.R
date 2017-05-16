@@ -17,7 +17,7 @@ library(data.table)
 library(stringr)
 #library(h2oEnsemble)
 
-h2o.init(nthreads = 40, #Number of threads -1 means use all cores on your machine
+h2o.init(nthreads = 20, #Number of threads -1 means use all cores on your machine
          max_mem_size = "25G")  #max mem size is the maximum memory to allocate to H2O
 h2o.removeAll()
 
@@ -56,6 +56,7 @@ if (REPLACE_HIGH_DIMENSION_VARS == TRUE){
 
 label <- c("order", "order_qty")
 all_preds <- c(cat_vars, cont_vars)
+print(all_preds)
 all_vars <- c(all_preds, label)
 
 train_set.hex <- as.h2o(train63d[all_vars])
@@ -112,7 +113,6 @@ gbm_grid <- h2o.grid(algorithm = "gbm",
                       ntrees = 1000,
                       learn_rate = 0.05,
                       learn_rate_annealing = 0.99,
-                      weights_column = "order_qty",
                       ## early stopping once the validation AUC doesn't improve 
                       #by at least 0.01% for 5 consecutive scoring events
                       stopping_rounds = 5, 
@@ -128,14 +128,14 @@ print(sorted_GBM_Grid)
 #gbm_models <- lapply(gbm_grid@model_ids, function(model_id) h2o.getModel(model_id))
 # save the top 3 models and generate prediction features on 1-63d and 64-77d
 for (i in 1:3){
-  glm <- h2o.getModel(sorted_GLM_Grid@model_ids[[i]])
-  h2o.saveModel(glm, paste("../models/1stLevel/end63d_train_glm",i), force=TRUE)
+  glm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
+  h2o.saveModel(glm, paste0("../models/1stLevel/end63d_train_glm",i), force=TRUE)
   preds_train63d <- as.data.frame(h2o.predict(glm, train_set.hex))[,3]
   preds_test63d <- as.data.frame(h2o.predict(glm, validation_set.hex))[,3]
   preds_train63d <- cbind(train63d_index_df, preds_train63d)
   preds_valid63d <- cbind(valid63d_index_df, preds_test63d)
-  write_feather(preds_train63d, paste0("../data/preds1stLevel/end63d_train_glm",i,'.feather'))
-  write_feather(preds_valid63d, paste0("../data/preds1stLevel/end63d_test_glm",i,'.feather'))
+  write_feather(preds_train63d, paste0("../data/preds1stLevel/end63d_train_gbm",i,'.feather'))
+  write_feather(preds_valid63d, paste0("../data/preds1stLevel/end63d_test_gbm",i,'.feather'))
 }
 # remove the data in h2o
 h2o.rm(train_set.hex)
@@ -205,15 +205,15 @@ h2o.rm(test_set.hex)
 ### Retain the model on train92d                                 ###
 ####################################################################
 #Load train92d and test92d dataset
-train92d <- read_feather("../data/processed/end92d_train.feather")
-test92d <- read_feather("../data/processed/end92d_test.feather")
+train92d <- read_feather("../data/processed/end92_train.feather")
+test92d <- read_feather("../data/processed/end92_test.feather")
 
 train92d_index_df <- train92d[c("lineID")]
 test92d_index_df <- test92d[c("lineID")]
 
 #Load into the h2o environment
 retrain_set.hex <- as.h2o(train92d[all_vars])
-test_set.hex <- as.h2o(test92d[all_vars])
+test_set.hex <- as.h2o(test92d[all_preds])
 
 # factorize the categorical variables
 for(c in cat_vars){
@@ -229,7 +229,8 @@ rm(train92d, test92d)
 # Only choose the top 3 models and persist the retrained model
 # Note: need to refit model including the pesudo validation set
 for (i in 1:3) {
-  gbm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
+  #gbm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
+  gbm <- h2o.loadModel(paste0("../models/1stLevel/end63d_train_glm",i))
   retrained_gbm <- do.call(h2o.gbm,
                            ## update parameters in place
                            {
@@ -242,8 +243,8 @@ for (i in 1:3) {
   )
   print(gbm@model_id)
   ## Get the AUC on the hold-out test set
-  retrained_gbm_auc <- round(h2o.auc(h2o.performance(retrained_gbm, newdata = test_set.hex)),4)
-  print(paste0("The AUC on 77-92 days: ", retrained_gbm_auc))
+  #retrained_gbm_auc <- round(h2o.auc(h2o.performance(retrained_gbm, newdata = test_set.hex)),4)
+  #print(paste0("The AUC on 77-92 days: ", retrained_gbm_auc))
   preds_train92d <- as.data.frame(h2o.predict(retrained_gbm, retrain_set.hex))[,3]
   preds_test92d <- as.data.frame(h2o.predict(retrained_gbm, test_set.hex))[,3]
   preds_train92d <- cbind(train92d_index_df, preds_train92d)

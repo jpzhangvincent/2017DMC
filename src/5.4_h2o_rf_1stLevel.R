@@ -149,7 +149,7 @@ test77d_index_df <- test77d[c("lineID")]
 
 #Load into the h2o environment
 retrain_set.hex <- as.h2o(train77d[all_vars])
-test_set.hex <- as.h2o(test77d[all_vars])
+test_set.hex <- as.h2o(test77d[all_preds])
 # factorize the categorical variables
 for(c in cat_vars){
   retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
