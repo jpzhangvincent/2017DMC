@@ -1,12 +1,11 @@
 #!/usr/bin/env Rscript
-#
+# 
 library(data.table)
 library(feather)
 library(stringr)
 library(h2o)
 
-h2o.init(nthreads = -1, #Number of threads -1 means use all cores on your machine
-         max_mem_size = "20G")  #max mem size is the maximum memory to allocate to H2O
+h2o.init(nthreads = 36) #Number of threads -1 means use all cores on your machine  #max mem size is the maximum memory to allocate to H2O
 h2o.removeAll()
 
 ####################################################################
@@ -67,8 +66,8 @@ for (c in cat_vars) {
 ####################################################################
 
 # GLM hyperparamters
-glm_params <- list( alpha = c(1e-2, 0.1,0.15,0.2,0.25,0.3,0.35,0.8,0.85,0.9),
-                    lambda = c(1e-4, 1e-2,1e-3, 0.1, 0.15,0.2,0.25,0.8,0.85,0.9,0.95))
+glm_params <- list( alpha = c(1e-2, 0.1,0.15,0.2,0.25,0.3,0.35,0.5,0.8,0.85,0.9),
+                    lambda = c(1e-4, 1e-2,1e-3, 0.1, 0.15,0.2,0.25,0.5,0.8,0.85,0.9,0.95))
 
 # Random Grid Search
 search_criteria <- list(strategy = "RandomDiscrete", 
@@ -83,12 +82,14 @@ search_criteria <- list(strategy = "RandomDiscrete",
                         stopping_tolerance = 1e-3)
 
 # Train and validate a grid of glms for parameter tuning
+# tuning parameter p = c(0,1,1.3,1.5,1.8,2,3,4)
 glm_grid <- h2o.grid(algorithm = "glm",
-                     family = "binomial",
+                     family = "tweedie",
+                     tweedie_variance_power = 1.3,
                      hyper_params = glm_params,
                      search_criteria = search_criteria,
                      x = all_preds, 
-                     y = "order",
+                     y = label,
                      grid_id = "glm_grid",
                      training_frame = train_set.hex,
                      validation_frame = validation_set.hex)
