@@ -13,8 +13,10 @@ h2o.removeAll()
 ####################################################################
 
 train63d <- read_feather("../data/processed/end63_train.feather")
-valid63d <- read_feather("../data/processed/end63_test.feather")
+test63d <- read_feather("../data/processed/end63_test.feather")
 
+train63d_index_df <- train63d[c("lineID")]
+valid63d_index_df <- valid63d[c("lineID")]
 
 # define predictors
 features <- fread("../data/processed/feature_list.csv")
@@ -57,8 +59,11 @@ for(c in cat_vars){
   validation_set.hex[c] <- as.factor(validation_set.hex[c])
 }
 
+
+
+
 ####################################################################
-### modeling part on train66d                                   ###
+### modeling part on train63d                                   ###
 ####################################################################
 
 #### train on all the features in train63d dataset
@@ -95,7 +100,7 @@ dl_cat <- h2o.deeplearning(
   hidden=c(200, 100, 50),       ## default: 2 hidden layers with 200 neurons each
   epochs=10000,
   stopping_rounds=3,
-  stopping_metric="auc",
+  stopping_metric="AUC",
   stopping_tolerance=0.001,
   l1=0.000010,
   l2=0.010000,
@@ -103,6 +108,37 @@ dl_cat <- h2o.deeplearning(
 )
 sprintf("Model performance for the model train on only categorical features in train63d dataset")
 h2o.performance(model = dl_cat, valid = T)
+
+
+
+# save the models
+h2o.saveModel(object = dl_all, path = "../models/1stLevel/end63_dl_all", force=TRUE)
+h2o.saveModel(object = dl_cat, path = "../models/1stLevel/end63_dl_cat", force=TRUE)
+
+# save the predictions for the second level modeling
+pred_all_train63d <- as.data.frame(h2o.predict(dl_all, newdata = train_set.hex))
+pred_all_test63d <- as.data.frame(h2o.predict(dl_all, newdata = validation_set.hex))
+pred_all_train63d <- cbind(train63d_index_df, pred_all_train63d)
+pred_all_test63d <- cbind(test63d_index_df, pred_all_test63d)
+newnames = paste("preds_nn",1,sep="")
+names(pred_all_train63d)[2] = newnames
+names(pred_all_test63d)[2] = newnames
+
+write_feather(pred_all_train63d, "../data/preds1stLevel/end63d_train_nn")
+write_feather(pred_all_test63d, "../data/preds1stLevel/end63d_test_nn")
+
+pred_cat_train63d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = train_set.hex))[,3]
+pred_cat_test63d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = validation_set.hex))[,3]
+pred_cat_train63d <- cbind(train63d_index_df, pred_cat_train63d)
+pred_cat_test63d <- cbind(test63d_index_df, pred_cat_test63d)
+newnames = paste("nn",2,sep="")
+names(pred_cat_train63d)[2] = newnames
+names(pred_cat_test63d)[2] = newnames
+
+write_feather(pred_cat_train63d, "../data/preds1stLevel/end63d_train_nncat")
+write_feather(pred_cat_test63d, "../data/preds1stLevel/end63d_train_nncat")
+
+
 
 # remove the data in h2o
 h2o.rm(train_set.hex)
@@ -134,14 +170,14 @@ rm(train77d, test77d)
 
 #retain on the train77d dataset
 retrained_dl_all <- do.call(h2o.deeplearning,
-                         ## update parameters in place
-                         {
-                           p <- dl_all@parameters  # the same seed
-                           p$model_id = NULL          ## do not overwrite the original grid model
-                           p$training_frame = retrain_set.hex   ## use the full training dataset
-                           p$validation_frame = NULL  ## no validation frame
-                           p
-                         })
+                            ## update parameters in place
+                            {
+                              p <- dl_all@parameters  # the same seed
+                              p$model_id = NULL          ## do not overwrite the original grid model
+                              p$training_frame = retrain_set.hex   ## use the full training dataset
+                              p$validation_frame = NULL  ## no validation frame
+                              p
+                            })
 
 sprintf("Model performance for the model train on all the features in train77d dataset")
 h2o.auc(h2o.performance(model = retrained_dl_all, newdata = test_set.hex))
@@ -168,7 +204,7 @@ pred_all_train77d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = retra
 pred_all_test77d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = test_set.hex))
 pred_all_train77d <- cbind(train77d_index_df, pred_all_train77d)
 pred_all_test77d <- cbind(test77d_index_df, pred_all_test77d)
-newnames = paste("preds_nn",i,sep="")
+newnames = paste("preds_nn",1,sep="")
 names(pred_all_train77d)[2] = newnames
 names(pred_all_test77d)[2] = newnames
 
@@ -179,7 +215,7 @@ pred_cat_train77d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = retra
 pred_cat_test77d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = test_set.hex))[,3]
 pred_cat_train77d <- cbind(train77d_index_df, pred_cat_train77d)
 pred_cat_test77d <- cbind(test77d_index_df, pred_cat_test77d)
-newnames = paste("nn",i,sep="")
+newnames = paste("nn",2,sep="")
 names(pred_cat_train77d)[2] = newnames
 names(pred_cat_test77d)[2] = newnames
 
@@ -206,38 +242,38 @@ retrain_set.hex <-as.h2o(train92d[all_vars])
 test_set.hex <-as.h2o(test92d[all_preds])
 # factorize the categorical variables
 for(c in cat_vars){
-    retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
+  retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
 }
 
 for(c in cat_vars){
-    test_set.hex[c] <- as.factor(test_set.hex[c])
+  test_set.hex[c] <- as.factor(test_set.hex[c])
 }
 
 rm(train92d, test92d)
 
 #retain on the train92d dataset
 retrained_dl_all <- do.call(h2o.deeplearning,
-## update parameters in place
-{
-    p <- dl_all@parameters  # the same seed
-    p$model_id = NULL          ## do not overwrite the original grid model
-    p$training_frame = retrain_set.hex   ## use the full training dataset
-    p$validation_frame = NULL  ## no validation frame
-    p
-})
+                            ## update parameters in place
+                            {
+                              p <- dl_all@parameters  # the same seed
+                              p$model_id = NULL          ## do not overwrite the original grid model
+                              p$training_frame = retrain_set.hex   ## use the full training dataset
+                              p$validation_frame = NULL  ## no validation frame
+                              p
+                            })
 
 sprintf("Model performance for the model train on all the features in train92d dataset")
 h2o.auc(h2o.performance(model = retrained_dl_all, newdata = test_set.hex))
 
 retrained_dl_cat <- do.call(h2o.deeplearning,
-## update parameters in place
-{
-    p <- dl_cat@parameters  # the same seed
-    p$model_id = NULL          ## do not overwrite the original grid model
-    p$training_frame = retrain_set.hex   ## use the full training dataset
-    p$validation_frame = NULL  ## no validation frame
-    p
-})
+                            ## update parameters in place
+                            {
+                              p <- dl_cat@parameters  # the same seed
+                              p$model_id = NULL          ## do not overwrite the original grid model
+                              p$training_frame = retrain_set.hex   ## use the full training dataset
+                              p$validation_frame = NULL  ## no validation frame
+                              p
+                            })
 
 sprintf("Model performance for the model train on categorical features in train92d dataset")
 h2o.auc(h2o.performance(model = retrained_dl_cat, newdata = test_set.hex))
@@ -251,7 +287,7 @@ pred_all_train92d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = retra
 pred_all_test92d <- as.data.frame(h2o.predict(retrained_dl_all, newdata = test_set.hex))
 pred_all_train92d <- cbind(train92d_index_df, pred_all_train92d)
 pred_all_test92d <- cbind(test92d_index_df, pred_all_test92d)
-newnames = paste("preds_nn",i,sep="")
+newnames = paste("preds_nn",1,sep="")
 names(pred_all_train92d)[2] = newnames
 names(pred_all_test92d)[2] = newnames
 
@@ -262,7 +298,7 @@ pred_cat_train92d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = retra
 pred_cat_test92d <- as.data.frame(h2o.predict(retrained_dl_cat, newdata = test_set.hex))[,3]
 pred_cat_train92d <- cbind(train92d_index_df, pred_cat_train92d)
 pred_cat_test92d <- cbind(test92d_index_df, pred_cat_test92d)
-newnames = paste("nn",i,sep="")
+newnames = paste("nn",2,sep="")
 names(pred_cat_train92d)[2] = newnames
 names(pred_cat_test92d)[2] = newnames
 
