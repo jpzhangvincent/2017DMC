@@ -208,8 +208,8 @@ h2o.rm(test_set.hex)
 train92d <- read_feather("../data/processed/end92d_train.feather")
 test92d <- read_feather("../data/processed/end92d_test.feather")
 
-train92d_index_df <- train77d[c("lineID")]
-test92d_index_df <- test77d[c("lineID")]
+train92d_index_df <- train92d[c("lineID")]
+test92d_index_df <- test92d[c("lineID")]
 
 #Load into the h2o environment
 retrain_set.hex <- as.h2o(train92d[all_vars])
@@ -224,7 +224,7 @@ for(c in cat_vars){
   test_set.hex[c] <- as.factor(test_set.hex[c])
 }
 
-rm(train77d, test77d)
+rm(train92d, test92d)
 
 # Only choose the top 3 models and persist the retrained model
 # Note: need to refit model including the pesudo validation set
