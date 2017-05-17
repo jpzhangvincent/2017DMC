@@ -8,18 +8,54 @@ library(stringr)
 h2o.init(nthreads = 36, max_mem_size = "30G")
 h2o.removeAll()
 
+offset_logrithm = function( data_set){
+        # create another revenue column called log_revenue
+        data_set$revenue = log(1e-5+ data_set$revenue) - log(1e-5)
+        data_set$loo_mean_revenue_by_pid = abs(1e-5+data_set$loo_mean_revenue_by_pid) - log(1e-5)
+        
+       # all columns need to transfer to log-scale
+        need_to_log=c("avg_price_basket_info",
+                      "avg_price_click_info",
+                      "avg_price_order_info",
+                      "avg_revenue_by_group_10",
+                      "avg_revenue_by_group_30",
+                      "avg_revenue_by_group_7",
+                      "competitorPrice_per_unit",
+                      "loo_mean_revenue_by_pid",
+                      "next_price",
+                      "next5_price_avg",
+                      "next5_price_max",
+                      "next5_price_min",
+                      "prev_price",
+                      "prev5_price_avg",
+                      "prev5_price_diff",
+                      "prev5_price_max",
+                      "prev5_price_min",
+                      "price",
+                      "price_per_unit",
+                      "rrp",
+                      "rrp_per_unit")
+        
+        data_set[,need_to_log] = log(1e-5+ data_set[,need_to_log]) - log(1e-5)
+        
+        return(data_set)
+}
+
 ####################################################################
 ### Set-up the validation scheme                                 ###
 ####################################################################
 
 train63d <- read_feather("../data/layer2/end63_train_layer2.feather")
 valid63d <- read_feather("../data/layer2/end63_test_layer2.feather")
+train63d <- offset_logrithm(train63d)
+valid63d <- offset_logrithm(valid63d)
+
 
 train63d_index_df <- train63d[c("lineID")]
 test63d_index_df <- valid63d[c("lineID")]
 
 # define predictors
-features <- fread("../data/processed/feature_list.csv")
+features <- fread("../data/layer2/feature_list_layer2.csv")
 #treat day_mod_ features as categorical
 features[str_detect(name,'day_mod_'),type := "categorical"]
 #should not include them in the modeling
@@ -42,7 +78,7 @@ if (REPLACE_HIGH_DIMENSION_VARS == TRUE){
   cat_vars <- setdiff(cat_vars, HIGH_DIMENSION_VARS)
 }
 
-label <- c("order")
+label <- c("revenue")
 all_preds <- c(cat_vars, cont_vars)
 all_vars <- c(all_preds, label)
 
@@ -78,7 +114,7 @@ dl_all <- h2o.deeplearning(
   hidden=c(256, 128, 64, 32),       ## default: 2 hidden layers with 200 neurons each
   epochs=10000,
   stopping_rounds=3,
-  stopping_metric="AUC",
+  stopping_metric="MSE",
   stopping_tolerance=0.001,
   l1=0.000010,
   l2=0.010000,
