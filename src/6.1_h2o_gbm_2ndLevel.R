@@ -18,8 +18,8 @@ h2o.removeAll()
 ### Set-up the validation scheme                                 ###
 ####################################################################
 
-train63d <- read_feather("../data/processed/end63_train_2nd.feather")
-valid63d <- read_feather("../data/processed/end63_test_2nd.feather")
+train63d <- read_feather("../data/processed/end63_train_layer2.feather")
+valid63d <- read_feather("../data/processed/end63_test_layer2.feather")
 
 # define predictors from original features
 features <- fread("../data/feature_list.csv")
@@ -129,8 +129,8 @@ h2o.rm(validation_set.hex)
 ### Retain the model on train77d                                 ###
 ####################################################################
 #Load train77d and test77d dataset
-train77d <- read_feather("../data/processed/end77_train_2nd.feather")
-test77d <- read_feather("../data/processed/end77_test_2nd.feather")
+train77d <- read_feather("../data/processed/end77_train_layer2.feather")
+test77d <- read_feather("../data/processed/end77_test_layer2.feather")
 
 train77d_index_df <- train77d[c("lineID")]
 test77d_index_df <- test77d[c("lineID")]
@@ -187,8 +187,8 @@ for (i in 1:4) {
 ### Retain the model on train92d                                 ###
 ####################################################################
 #Load train92d and test92d dataset
-train92d <- read_feather("../data/processed/end92_train_2nd.feather")
-test92d <- read_feather("../data/processed/end92_test_2nd.feather")
+train92d <- read_feather("../data/processed/end92_train_layer2.feather")
+test92d <- read_feather("../data/processed/end92_test_layer2.feather")
 
 train92d_index_df <- train92d[c("lineID")]
 test92d_index_df <- test92d[c("lineID")]
