@@ -41,7 +41,7 @@ merge_set = function(d, set) {
   }
 
   # Write
-  OUT = "../data/layer3/end%i_%s_layer2.feather"
+  OUT = "../data/layer3/end%i_%s_layer3.feather"
 
   out_path = sprintf(OUT, d, set)
   write_feather(df, out_path)

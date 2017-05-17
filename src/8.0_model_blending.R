@@ -4,23 +4,14 @@ library(data.table)
 library(feather)
 library(h2o)
 
+DIR <- "../data/layer3"
 #list all the test77d files in the data/preds2ndLevel folder
-PRED_DIR <- "../data/pred2ndLevel/"
-re <- "end77"
-df <- data.table(read_feather("../data/processed/end92_test.feather"))[,.(lineID, revenue)]
-paths <- list.files(PRED_DIR, re, full.names = TRUE)
 
-#combine all the prediction results 
-for (path in paths) {
-  message(sprintf("  Merging: %s", path))
-  pred = data.table(read_feather(path))
-  setkey(pred, lineID)
-  df = merge(df, pred, all.x = TRUE)
-  rm(pred); gc()
-}
+path <- file.path(DIR, "end77_test_layer3.feather")
+df <- data.table(read_feather(path))
 
 #fit a glmnet on the true revenue(with cross validation?)
-predictors = setdiff(colnames(df), "revenue")
+predictors <- setdiff(colnames(df), "revenue")
 
 # grid over `tweedie_variance_power`
 # select the values for `tweedie_variance_power` to grid over
