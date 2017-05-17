@@ -8,9 +8,6 @@ main = function() {
   message()
   DAYS = c(77, 92)
 
-  message("---------------------------------------- Train")
-  lapply(DAYS, merge_set, "train")
-
   message("---------------------------------------- Test")
   lapply(DAYS, merge_set, "test")
 
