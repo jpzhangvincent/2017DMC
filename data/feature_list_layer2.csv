@@ -84,6 +84,12 @@ next_pid_ref,numeric,numeric
 next_pmi_group,numeric,numeric
 next_price,numeric,numeric
 next_price_pct_chg,numeric,numeric
+next1_category_order_prop,numeric,numeric
+next1_deduplicated_pid_order_prop,numeric,numeric
+next1_group_order_prop,numeric,numeric
+next2_category_order_prop,numeric,numeric
+next2_deduplicated_pid_order_prop,numeric,numeric
+next2_group_order_prop,numeric,numeric
 next5_price_avg,numeric,numeric
 next5_price_diff,numeric,numeric
 next5_price_max,numeric,numeric
@@ -108,6 +114,9 @@ pred_rf3,numeric,numeric
 pred_xgboost1,numeric,numeric
 pred_xgboost2,numeric,numeric
 pred_xgboost3,numeric,numeric
+preds_gbm1,numeric,numeric
+preds_gbm2,numeric,numeric
+preds_gbm3,numeric,numeric
 preds_glm1,numeric,numeric
 preds_glm2,numeric,numeric
 preds_glm3,numeric,numeric
@@ -118,6 +127,9 @@ prev_group_order_prop,numeric,numeric
 prev_pid_ref,numeric,numeric
 prev_price,numeric,numeric
 prev_price_pct_chg,numeric,numeric
+prev2_category_order_prop,numeric,numeric
+prev2_deduplicated_pid_order_prop,numeric,numeric
+prev2_group_order_prop,numeric,numeric
 prev5_price_avg,numeric,numeric
 prev5_price_diff,numeric,numeric
 prev5_price_max,numeric,numeric
