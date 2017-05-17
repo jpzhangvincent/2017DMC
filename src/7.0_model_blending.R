@@ -1,12 +1,49 @@
 #!/usr/bin/env Rscript
 
-#list all the test77d files in the data/preds2ndLevel folder
+library(data.table)
+library(feather)
+library(h2o)
 
+#list all the test77d files in the data/preds2ndLevel folder
+PRED_DIR <- "../data/pred2ndLevel/"
+re <- "end77"
+df <- data.table(read_feather("../data/processed/end92_test.feather"))[,.(lineID, revenue)]
+paths <- list.files(PRED_DIR, re, full.names = TRUE)
 
 #combine all the prediction results 
-
+for (path in paths) {
+  message(sprintf("  Merging: %s", path))
+  pred = data.table(read_feather(path))
+  setkey(pred, lineID)
+  df = merge(df, pred, all.x = TRUE)
+  rm(pred); gc()
+}
 
 #fit a glmnet on the true revenue(with cross validation?)
+predictors = setdiff(colnames(df), "revenue")
 
+# grid over `tweedie_variance_power`
+# select the values for `tweedie_variance_power` to grid over
+hyper_params <- list(tweedie_variance_power = c(1.2, 1.4, 1.6, 1.8),
+                     alpha = c(0.1, 0.3, 0.6, 0.8), 
+                     lambda = c(1e-2, 0.1, 0.15,0.2,0.25,0.5,0.8))
+
+# this example uses cartesian grid search because the search space is small
+# and we want to see the performance of all models. For a larger search space use
+# random grid search instead: {'strategy': "RandomDiscrete"}
+
+# build grid search with previously selected hyperparameters
+grid <- h2o.grid(x = predictors, y = "revenue", training_frame = df, nfold = 3,
+                 family = 'tweedie', algorithm = "glm", grid_id = "auto_grid", 
+                 hyper_params = hyper_params, 
+                 search_criteria = list(strategy = "RandomDiscrete"))
+
+# Sort the grid models by rmse
+sortedGrid <- h2o.getGrid("auto_grid", sort_by = "rmse", decreasing = FALSE)
 
 #save the weights(model parameters) in "models/final_blending_weights.rda"
+for (i in 1:3){
+  blending_glm <- h2o.getModel(sortedGrid@model_ids[[i]])
+  h2o.saveModel(blending_glm, paste0("../model/final_blending_model", i))
+}
+
