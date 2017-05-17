@@ -16,9 +16,6 @@ h2o.removeAll()
 train63d <- read_feather("../data/processed/end63_train_2nd.feather")
 valid63d <- read_feather("../data/processed/end63_test_2nd.feather")
 
-train63d <- read_feather("end63_train_layer2_DEMO.feather")
-valid63d <- read_feather("end63_test_layer2_DEMO.feather")
-
 offset_logrithm = function( data_set){
   # create another revenue column called log_revenue
   data_set$log_revenue = log(1e-5+ data_set$revenue) - log(1e-5)
@@ -127,7 +124,7 @@ search_criteria <- list(strategy = "RandomDiscrete",
 # tuning parameter p = c(0,1,1.3,1.5,1.8,2,3,4)
 glm_grid <- h2o.grid(algorithm = "glm",
                      family = "tweedie",
-                     tweedie_variance_power = 1.1,
+                     tweedie_variance_power = 1.9,
                      hyper_params = glm_params,
                      search_criteria = search_criteria,
                      x = all_preds, 
@@ -136,10 +133,23 @@ glm_grid <- h2o.grid(algorithm = "glm",
                      training_frame = train_set.hex,
                      validation_frame = validation_set.hex)
 
+fit = h2o.glm(x = all_preds, 
+              y = label,
+              training_frame = train_set.hex,
+              validation_frame = validation_set.hex,
+              family = "tweedie",
+              tweedie_variance_power = 1.9
+              )
+
 sorted_GLM_Grid <- h2o.getGrid(grid_id = "glm_grid", 
-                               sort_by = "rmse", 
-                               decreasing = TRUE)
+                               sort_by = "rmse")
+                               #decreasing = TRUE)
 print(sorted_GLM_Grid)
+glm <- h2o.getModel(sorted_GLM_Grid@model_ids[[1]])
+preds_test63d <- as.data.frame(h2o.predict(glm, validation_set.hex))
+newpred = exp(preds_test63d[,1]+log(1e-5))-10^-5
+sqrt(mean((newpred-valid63d$revenue)^2))
+
 # remove the data in h2o
 h2o.rm(train_set.hex)
 h2o.rm(validation_set.hex)

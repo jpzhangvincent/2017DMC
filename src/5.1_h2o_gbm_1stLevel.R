@@ -17,7 +17,7 @@ library(data.table)
 library(stringr)
 #library(h2oEnsemble)
 
-h2o.init(nthreads = 20, #Number of threads -1 means use all cores on your machine
+h2o.init(nthreads = 30, #Number of threads -1 means use all cores on your machine
          max_mem_size = "25G")  #max mem size is the maximum memory to allocate to H2O
 h2o.removeAll()
 
@@ -49,7 +49,7 @@ cont_vars <- setdiff(features[type == "numeric", name], c(cat_vars, LESS_IMPORTA
 #probably want to replace these features
 HIGH_DIMENSION_VARS <- c("group", "content", "manufacturer", 
                          "category", "pharmForm")
-REPLACE_HIGH_DIMENSION_VARS <- FALSE
+REPLACE_HIGH_DIMENSION_VARS <- TRUE
 if (REPLACE_HIGH_DIMENSION_VARS == TRUE){
   cat_vars <- setdiff(cat_vars, HIGH_DIMENSION_VARS)
 }
