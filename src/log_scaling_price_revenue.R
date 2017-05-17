@@ -1,8 +1,9 @@
 offset_logrithm = function( data_set){
-       
-        tmp$log_revenue = log(1e-5+ tmp$revenue) - log(1e-5)
-        tmp$loo_mean_revenue_by_pid = abs(1e-5+tmp$loo_mean_revenue_by_pid) - log(1e-5)
+        # create another revenue column called log_revenue
+        data_set$log_revenue = log(1e-5+ tmp$revenue) - log(1e-5)
+        data_set$loo_mean_revenue_by_pid = abs(1e-5+tmp$loo_mean_revenue_by_pid) - log(1e-5)
         
+       # all columns need to transfer to log-scale
         need_to_log=c("avg_price_basket_info",
                       "avg_price_click_info",
                       "avg_price_order_info",
@@ -25,9 +26,9 @@ offset_logrithm = function( data_set){
                       "rrp",
                       "rrp_per_unit")
         
-        tmp[,need_to_log] = log(1e-5+ tmp[,need_to_log]) - log(1e-5)
+        data_set[,need_to_log] = log(1e-5+ data_set[,need_to_log]) - log(1e-5)
         
-        return(tmp)
+        return(data_set)
 }
 
 
