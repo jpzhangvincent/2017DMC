@@ -11,7 +11,7 @@ h2o.removeAll()
 ####################################################################
 ### Set-up the validation scheme                                 ###
 ####################################################################
-
+setwd("~/DMC/src")
 train63d <- read_feather("../data/processed/end63_train.feather")
 valid63d <- read_feather("../data/processed/end63_test.feather")
 
@@ -66,7 +66,36 @@ for(c in cat_vars){
 ### modeling part on train63d                                   ###
 ####################################################################
 
-#### train on all the features in train63d dataset
+#### grid search on all the features in train63d dataset
+activation_opt <- c("Rectifier", "Maxout", "Tanh")
+l1_opt <- c(0, 0.00001, 0.0001, 0.001, 0.01)
+l2_opt <- c(0, 0.00001, 0.0001, 0.001, 0.01)
+hyper_params <- list(activation = activation_opt,
+                     l1 = l1_opt,
+                     l2 = l2_opt)
+search_criteria <- list(strategy = "RandomDiscrete",
+                        max_runtime_secs = 600)
+dl_grid <- h2o.grid("deeplearning",
+                    x = all_preds,
+                    y = label,
+                    grid_id = "dl_grid",
+                    training_frame = train_set.hex,
+                    validation_frame = validation_set.hex,
+                    seed = 1234,
+                    hidden = c(256, 128, 64, 32),
+                    hyper_params = hyper_params,
+                    search_criteria = search_criteria)
+h2o.saveModel(object=dl_grid, path=getwd(), force=TRUE)
+## sort the grid
+ dl_gridperf <- h2o.getGrid(grid_id = "dl_grid",
+                           sort_by = "accuracy",
+                           decreasing = TRUE)
+# print(dl_gridperf)
+## pick the best setting
+best_dl_model_id <- dl_gridperf@model_ids[[1]]
+best_dl <- h2o.getModel(best_dl_model_id)
+h2o.performance(best_dl,newdata=test)
+
 dl_all <- h2o.deeplearning(
   model_id="dl_model_all", 
   training_frame = train_set.hex, 
@@ -239,7 +268,7 @@ test92d_index_df <- test92d[c("lineID")]
 
 #Load into the h2o environment
 retrain_set.hex <-as.h2o(train92d[all_vars])
-test_set.hex <-as.h2o(test92d[all_preds])
+test_set.hex <-as.h2o(test92d[all_vars])
 # factorize the categorical variables
 for(c in cat_vars){
   retrain_set.hex[c] <- as.factor(retrain_set.hex[c])

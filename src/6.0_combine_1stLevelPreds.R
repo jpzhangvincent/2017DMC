@@ -28,7 +28,7 @@ merge_set = function(d, set) {
   setkey(df, lineID)
 
   # Merge every matching file in the prediction directory.
-  PRED_PATTERN = "^end%i_%s" # preds files start `end##_SET_`
+  PRED_PATTERN = "^end%id?_%s" # preds files start `end##_SET_`
   PRED_DIR = "../data/preds1stLevel"
 
   re = sprintf(PRED_PATTERN, d, set)
@@ -39,6 +39,7 @@ merge_set = function(d, set) {
     setkey(pred, lineID)
 
     df = merge(df, pred, all.x = TRUE)
+    rm(pred); gc()
   }
 
   # Write
@@ -47,6 +48,8 @@ merge_set = function(d, set) {
   out_path = sprintf(OUT, d, set)
   write_feather(df, out_path)
   message(sprintf("  WROTE: %s\n", out_path))
+
+  rm(df); gc()
 
   invisible (NULL)
 }
