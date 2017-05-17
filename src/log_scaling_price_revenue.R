@@ -1,4 +1,4 @@
-order1_logrithm = function( data_set){
+order1_logarithm = function( data_set){
         tmp = subset( data_set, order == 1 )
         
         tmp$log_revenue = log(tmp$revenue)
@@ -32,10 +32,10 @@ order1_logrithm = function( data_set){
 
 
 
-plus1_logrithm = function( data_set){
+offset_logarithm = function( data_set){
        
-        tmp$log_revenue = log(1+ tmp$revenue)
-        tmp$loo_mean_revenue_by_pid = abs(1+tmp$loo_mean_revenue_by_pid)
+        tmp$log_revenue = log(1e-5+ tmp$revenue)
+        tmp$loo_mean_revenue_by_pid = abs(1e-5+tmp$loo_mean_revenue_by_pid)
         
         need_to_log=c("avg_price_basket_info",
                       "avg_price_click_info",
@@ -59,7 +59,7 @@ plus1_logrithm = function( data_set){
                       "rrp",
                       "rrp_per_unit")
         
-        tmp[,need_to_log] = log(1+ tmp[,need_to_log])
+        tmp[,need_to_log] = log(1e-5+ tmp[,need_to_log])
         
         return(tmp)
 }
