@@ -2,13 +2,6 @@
 #
 #This script is to train a gradient boosting machine(tree) model at the first level  
 # to classify whether the product is ordered or not.
-#
-#Inputs: 
-#     train_set(1<=day<=77): file from the path 'data/processed/train_set.feather'
-#     pesudo_test_set(78<=day<=92): file from the path 'data/processed/validation_set.feather'
-#Outputs: 
-#     gbm-*modelid*-*auc*: save the h2o models in the folder 'models/'
-#     gbm-*modelid*-1stLevelPred.csv: the prediction on the untouched test set
 
 
 library(data.table)
@@ -126,6 +119,7 @@ sorted_GBM_Grid <- h2o.getGrid(grid_id = "gbm_grid",
                                decreasing = TRUE)
 print(sorted_GBM_Grid)
 #gbm_models <- lapply(gbm_grid@model_ids, function(model_id) h2o.getModel(model_id))
+#save model
 
 # remove the data in h2o
 h2o.rm(train_set.hex)
@@ -183,9 +177,67 @@ for (i in 1:4) {
   
   # save the retrained model to regenerate the predictions for 2nd level modeling 
   # and possibly useful for ensemble
-  h2o.saveModel(retrained_gbm, paste("../models/2ndLevel/h2o_gbm",retrained_gbm_rmse,sep = '-'), force = TRUE)
-  write_feather(preds_train77d, paste0("../data/preds2ndLevel/h2o_glm_train77d-",retrained_gbm_rmse,'.feather'))
-  write_feather(preds_test77d, paste0("../data/preds2ndLevel/h2o_glm_test77d-",retrained_gbm_rmse,'.feather'))
+  #h2o.saveModel(retrained_gbm, paste("../models/2ndLevel/h2o_gbm",retrained_gbm_rmse,sep = '-'), force = TRUE)
+  #write_feather(preds_train77d, paste0("../data/preds2ndLevel/end77d_train_gbm_",retrained_gbm_rmse,'.feather'))
+  # train a third level ensemble model
+  write_feather(preds_test77d, paste0("../data/preds2ndLevel/end77d_test_gbm_",retrained_gbm_rmse,'.feather'))
+}
+
+####################################################################
+### Retain the model on train92d                                 ###
+####################################################################
+#Load train92d and test92d dataset
+train92d <- read_feather("../data/processed/end92_train_2nd.feather")
+test92d <- read_feather("../data/processed/end92_test_2nd.feather")
+
+train92d_index_df <- train92d[c("lineID")]
+test92d_index_df <- test92d[c("lineID")]
+
+#Load into the h2o environment
+retrain_set.hex <- as.h2o(train92d[all_vars])
+test_set.hex <- as.h2o(test92d[all_preds])
+
+# factorize the categorical variables
+for(c in cat_vars){
+  retrain_set.hex[c] <- as.factor(retrain_set.hex[c])
+}
+
+for(c in cat_vars){
+  test_set.hex[c] <- as.factor(test_set.hex[c])
+}
+
+rm(train92d, test92d)
+
+# Only choose the top 4 models and persist the retrained model
+# Note: need to refit model including the pesudo validation set
+for (i in 1:4) {
+  gbm <- h2o.getModel(sorted_GBM_Grid@model_ids[[i]])
+  retrained_gbm <- do.call(h2o.gbm,
+                           ## update parameters in place
+                           {
+                             p <- gbm@parameters        # the same seed
+                             p$model_id = NULL          ## do not overwrite the original grid model
+                             p$training_frame = train_set.hex   ## use the full training dataset
+                             p$validation_frame = NULL  ## no validation frame
+                             p
+                           }
+  )
+  print(gbm@model_id)
+  ## Get the AUC on the hold-out test set
+  retrained_gbm_rmse <- round(h2o.rmse(h2o.performance(retrained_gbm, newdata = test_set.hex)),4)
+  preds_train92d <- as.data.frame(h2o.predict(retrained_gbm, retrain_set.hex))[,3]
+  preds_test92d <- as.data.frame(h2o.predict(retrained_gbm, test_set.hex))[,3]
+  preds_train92d <- cbind(train92d_index_df, preds_train92d)
+  preds_test92d <- cbind(test92d_index_df, preds_test92d)
+  newnames = paste("preds_gbm",i,sep ="")
+  names(preds_train92d)[2] = newnames
+  names(preds_test92d)[2] = newnames
+  
+  # save the retrained model to regenerate the predictions for 2nd level modeling 
+  # and possibly useful for ensemble
+  #h2o.saveModel(retrained_gbm, paste("../models/2ndLevel/h2o_gbm",retrained_gbm_rmse,sep = '-'), force = TRUE)
+  #write_feather(preds_train92d, paste0("../data/preds2ndLevel/end92d_train_gbm_",retrained_gbm_rmse,'.feather'))
+  write_feather(preds_test92d, paste0("../data/preds2ndLevel/end92_test_gbm_",retrained_gbm_rmse,'.feather'))
 }
 
 h2o.shutdown(prompt = FALSE)
