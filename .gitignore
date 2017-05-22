@@ -71,3 +71,12 @@ target/
 
 # exclude data from source control by default
 /data/
+
+# PDF
+*.fls
+*.aux
+*.nav
+*.out
+*.snm
+*.toc
+*.fdb_latexmk
